@@ -9,3 +9,7 @@ The challenge is to restore a low resolution image to a high resolution one. Sim
 * Third, OK, at this point in time I don't know what solutions are viable so I would like to consult Dr. Google and Prof. arXiv.
 
 Anyway, I received the challenge today Feb. 07, 2020 and started writing my thoughts this day... duh. What am I even saying!
+## TODO:
+* Put in hell of a lot of figures cuz I am such a noob at writing and talking about anything. They say that an image is a worth a trillion words... damn I am really slaying this challenge with damn sayings.
+* Reread the problem again and update The understanding the problem part. Cuz right now your description is such a noooob one. Remember not to be stagnant on one place! And please check your english!
+* Let's go python. Search how the top solutions are made. and maybe combine them?? Cuz I am not creative enough to form my own solution. Well, I am kidding you. I can do it given infinite amount of time and ... GPU aalkdfjlasjdflaskjdflaksjfd
