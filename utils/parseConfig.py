@@ -26,12 +26,13 @@ def parseConfig(path: str) -> List[Dict]:
             moduleDefs[-1]['type'] = line[1:-1].lstrip().rstrip()
             if moduleDefs[-1]['type'] = 'convolutional':
                 moduleDefs[-1]['batchNormalize'] = 0
+                moduleDefs[-1]['instNormalize'] = 0
         else:
             key, val = line.split('=')
             key = key.lstrip().rstrip()
 
     # Check all fields if they are supported
-    supported = ['type', 'batchNormalize', 'filters', 'size', 'stride', 'pad',
+    supported = ['type', 'instNormalize', 'batchNormalize', 'filters', 'size', 'stride', 'pad',
                  'activation', 'layers', 'groups', 'from', 'num', 'jitter',
                  'random', 'stride_x', 'stride_y']
 
