@@ -79,3 +79,15 @@ def generateImageSetDict(imageSetNum: str, isTrainData: bool, NIR: bool):
             imgMask[img.split('.')[0]] = cv2.imread(os.path.join(imageDir, img))
 
     return (imgArray, imgMask)
+
+
+def generateImageSet(isTrainData: bool, NIR: bool):
+    '''
+    Generate a dictionary with the key with the form 'imgsetxxxxx' and values
+    as tuple (ImageArrayDict, ImageMaskDict)
+    '''
+
+    dirList = generateDataDir(isTrainData, NIR)
+    imageSet = {imgSet: generateImageSetDict(imgSet, isTrainData, NIR)
+                for imgSet in dirList}
+    return imageSet
