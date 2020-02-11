@@ -1,9 +1,10 @@
 from typing import List
 
 import os
-import cv2
 import glob
+import numpy as np
 import pandas as pd
+from skimage import io
 
 # Set the data data directory
 # Download data at https://kelvins.esa.int/proba-v-super-resolution/data/
@@ -20,6 +21,8 @@ def generateDataDir(isTrainData: bool, NIR: bool):
     Output:
     List that contains string of the form 'imgsetxxxxx'
     '''
+    band = 'NIR' if NIR else 'RED'
+    dataType = 'train' if isTrainData else 'test'
     imageDir = os.path.join(DATA_BANK_DIRECTORY, dataType, band)
     dirList = sorted([os.path.basename(x) for x in glob.glob(imageDir + '/imgset*')])
     return dirList
@@ -66,17 +69,17 @@ def generateImageSetDict(imageSetNum: str, isTrainData: bool, NIR: bool):
     # Iterate through all items and populate the Dicts
     imageList = sorted(os.listdir(imageDir))
     if isTrainData:
-        imgArray['HR'] = cv2.imread(os.path.join(imageDir, 'HR.png'))
-        imgMask['HR'] = cv2.imread(os.path.join(imageDir, 'SM.png'))
+        imgArray['HR'] = io.imread(os.path.join(imageDir, 'HR.png'))
+        imgMask['HR'] = io.imread(os.path.join(imageDir, 'SM.png'))
     for img in imageList:
         if img == 'HR.png':
             continue
         elif img == 'SM.png':
             continue
         elif img[0:2] == 'LR':
-            imgArray[img.split('.')[0]] = cv2.imread(os.path.join(imageDir, img))
+            imgArray[img.split('.')[0]] = io.imread(os.path.join(imageDir, img))
         else:
-            imgMask[img.split('.')[0]] = cv2.imread(os.path.join(imageDir, img))
+            imgMask['LR' + img.split('.')[0][2:]] = io.imread(os.path.join(imageDir, img)).astype(np.bool)
 
     return (imgArray, imgMask)
 
@@ -90,4 +93,40 @@ def generateImageSet(isTrainData: bool, NIR: bool):
     dirList = generateDataDir(isTrainData, NIR)
     imageSet = {imgSet: generateImageSetDict(imgSet, isTrainData, NIR)
                 for imgSet in dirList}
+    return imageSet
+
+
+def removeImageWithOutlierPixels(imageSet: Dict, threshold: int):
+    '''
+    This function removes images with pixels greater than the assigned threshold.
+    Images are 14 bits in depth but is represented by 16 bit array.
+    We use threshold around 32000 ~ 60000.
+
+    Input:
+    imageSet: Dict[imgsetxxxx: Tuple(ImageArrayDict, ImageMaskDict)]
+    threshold: int
+
+    Output: Dict
+    '''
+    # Initialize info list
+    imgSetLRPair = []
+    imageSetRemove = []
+
+    # Iterate through all arrays and determine if they have outliers
+    for keySet in imageSet.keys():
+        imgArrayDict, imgMaskDict = imageSet[keySet]
+        for keyArray in imgArrayDict.keys():
+            # Remove images with high pixel values
+            if (imgArrayDict[keyArray] < threshold).any():
+                imgSetLRPair.append((keySet, keyArray))
+                del imgArrayDict[keyArray]
+                del imgMaskDict[keyArray]
+        # Remove images with LR images below 9
+        if len(imageSet[keySet]) < 9:
+            imageSetRemove.append(keySet)
+            del imageSet[keySet]
+
+    print('imgSet and LR image pair to be removed are as follows \n{} \n \
+           imageSet to be removed are as follows \n{}'.format(imgSetLRPair, imageSetRemove))
+
     return imageSet
