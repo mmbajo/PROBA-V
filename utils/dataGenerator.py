@@ -5,6 +5,7 @@ import glob
 import numpy as np
 import pandas as pd
 from skimage import io
+from skimage.transform import rescale
 
 # Set the data data directory
 # Download data at https://kelvins.esa.int/proba-v-super-resolution/data/
@@ -96,14 +97,14 @@ def generateImageSet(isTrainData: bool, NIR: bool):
     return imageSet
 
 
-def removeImageWithOutlierPixels(imageSet: Dict, threshold: int):
+def removeImageWithOutlierPixels(imageSet: Dict, threshold: int, isTrainData: bool):
     '''
     This function removes images with pixels greater than the assigned threshold.
     Images are 14 bits in depth but is represented by 16 bit array.
     We use threshold around 32000 ~ 60000.
 
     Input:
-    imageSet: Dict[imgsetxxxx: Tuple(ImageArrayDict, ImageMaskDict)]
+    imageSet: Dict[imgsetxxxx] = Tuple(ImageArrayDict, ImageMaskDict)
     threshold: int
 
     Output: Dict
@@ -112,21 +113,72 @@ def removeImageWithOutlierPixels(imageSet: Dict, threshold: int):
     imgSetLRPair = []
     imageSetRemove = []
 
+    # If isTrainData set threshold to 9 + 1 (+1 for the HR image)
+    numImagesThreshold = 10 if isTrainData else 9
+
     # Iterate through all arrays and determine if they have outliers
     for keySet in imageSet.keys():
         imgArrayDict, imgMaskDict = imageSet[keySet]
         for keyArray in imgArrayDict.keys():
             # Remove images with high pixel values
+            if keyArray == 'HR':
+                continue
             if (imgArrayDict[keyArray] < threshold).any():
                 imgSetLRPair.append((keySet, keyArray))
                 del imgArrayDict[keyArray]
                 del imgMaskDict[keyArray]
         # Remove images with LR images below 9
-        if len(imageSet[keySet]) < 9:
+        if len(imageSet[keySet]) < numImagesThreshold:
             imageSetRemove.append(keySet)
             del imageSet[keySet]
 
     print('imgSet and LR image pair to be removed are as follows \n{} \n \
            imageSet to be removed are as follows \n{}'.format(imgSetLRPair, imageSetRemove))
+
+    return imageSet
+
+
+def upsampleImages(imageSet: Dict, scale: int):
+    '''
+    Converts all images and its masks from 128x128 -> 384x384 by upsampling.
+
+    Input:
+    imageSet: Dict -> imageSet[imagesetxxxx] = Tuple(ImageArrayDict, ImageMaskDict)
+       scale: int
+
+    Output:
+    imageSet: Dict
+    '''
+    # Iterate for all imageSet
+    for keySet in imageSet.keys():
+        imgArrayDict, imgMaskDict = imageSet[keySet]
+
+        # Iterate for all LR images
+        for keyArray in imgArrayDict.keys():
+            # Skip the HR images
+            if keyArray == 'HR':
+                continue
+            # Rescale LR images
+            imgArrayDict[keyArray] = rescale(imgArrayDict[keyArray],
+                                             scale=scale,
+                                             order=3,  # bicubic interpolation
+                                             mode='edge',
+                                             anti_aliasing=False,
+                                             multichannel=False,
+                                             preserve_range=True)
+            imgArrayDict[keyArray] = imgArrayDict[keyArray].astype('float32')
+
+            # Rescale corresponding masks
+            imgMaskDict[keyArray] = rescale(imgMaskDict[keyArray],
+                                            scale=scale,
+                                            order=0,
+                                            mode='constant',
+                                            anti_aliasing=False,
+                                            multichannel=False,
+                                            preserve_range=True)
+            imgMaskDict[keyArray] = imgMaskDict[keyArray].astype('bool')
+
+        # Reassign imageSet
+        imageSet[keySet] = tuple(imgArrayDict, imgMaskDict)
 
     return imageSet
