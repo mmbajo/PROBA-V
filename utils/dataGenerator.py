@@ -182,3 +182,7 @@ def upsampleImages(imageSet: Dict, scale: int):
         imageSet[keySet] = tuple(imgArrayDict, imgMaskDict)
 
     return imageSet
+
+
+def correctShifts(imageSet: Dict):
+    pass
