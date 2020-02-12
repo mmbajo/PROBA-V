@@ -270,7 +270,8 @@ def imageSet2NumpyArray(imageSet: Tuple, isGrayScale: bool, isNWHC: bool):
     return (imgLowResArray, imgHighResArray), (maskLowResArray, maskHighResArray)
 
 
-def correctShifts(imageSets: List[np.ndarray], maskSets: List[np.ndarray], upsampleScale: int):
+def correctShifts(imageSetsLR: List[np.ndarray], maskSetsLR: List[np.ndarray],
+                  imageSetsHR: List[np.ndarray], maskSetsHR: List[np.ndarray], upsampleScale: int):
     '''
     As per the data website the low resolution images are not adjusted for its shift.
     We adjust the the low resolution images for the shift.
@@ -286,7 +287,7 @@ def correctShifts(imageSets: List[np.ndarray], maskSets: List[np.ndarray], upsam
     Corrected and trimmed version  of the input dataset
     '''
     # Extract constants
-    numSets = len(imageSets)
+    numSets = len(imageSetsLR)
 
     # Initialize outputs
     newSortedImageSets = []
@@ -296,7 +297,7 @@ def correctShifts(imageSets: List[np.ndarray], maskSets: List[np.ndarray], upsam
 
     # Iterate thru all image sets
     for i in range(numSets):
-        imgSet, maskSet = imageSets[i], maskSets[i]
+        imgSet, maskSet = imageSetsLR[i], maskSetsLR[i]
         numLRImgs = imgSet.shape[0]
         sortedIdx = np.argsort(np.sum(maskSet, axis=(1, 2, 3)))[::-1]  # descending order
 
@@ -307,15 +308,62 @@ def correctShifts(imageSets: List[np.ndarray], maskSets: List[np.ndarray], upsam
         newSortedMaskSets.append(maskSet)
 
         referenceImage = imgSet[0, :, :, :]  # most clear image
+        referenceMask = maskSet[0, :, :, :]  # highest cummulative sum
+
+        # Copy arrays for stacking
+        trimmedImageSet = np.array([np.copy(referenceImage)])
+        trimmedMaskSet = np.array([np.copy(referenceMask)])
+
+        # Number of LR images included
+        counter = 1
 
         # Iterate thru all LR image for the current scene
         # and adjust the shift wrt the reference image
         for j in range(1, numLRImgs):
+            # Initialize current images and mask
             currImage = imgSet[j, :, :, :]
+            currMask = maskSet[j, :, :, :]
 
             # Calculate shift
             shift, error, diffPhase = register_translation(
                 referenceImage.squeeze(), currImage.squeeze(), upsampleScale)
+            shift = np.asarray(shift)
+
+            # Skip those images with 4 shifts and above
+            if (np.abs(shift) > 4).any():
+                continue
+
+            # Get shapes -> format may be CWH or WHC
+            x, y, z = currImage.shape
+
+            # Correct image in the frequency domain
+            correctedImageInFreqDomain = fourier_shift(np.fft.fftn(currImage.squeeze()), shift)
+            correctedImage = np.fft.ifftn(correctedImageInFreqDomain)
+            correctedImage = correctedImage.reshape((x, y, z))
+
+            # Correct image in the frequency domain
+            correctedMaskInFreqDomain = fourier_shift(np.fft.fftn(currMask.squeeze()), shift)
+            correctedMask = np.fft.ifftn(correctedMaskInFreqDomain)
+            correctedMask = correctedMask.reshape((x, y, z))
+
+            # Stack to the reference iamge
+            trimmedImageSet = np.stack(trimmedImageSet, np.array([correctedImage]))
+            trimmedMaskSet = np.stack(trimmedMaskSet, np.array([correctedMask]))
+            counter += 1
+
+        # Remove imagesets with LR images less than 9
+        if counter < 9:
+            print('An image set has been remove due to low LR image number.')
+            # Remove HR Image and its mask
+            del imageSetsHR[i]
+            del maskSetsHR[i]
+            continue
+
+        # Append to trimmed list
+        trimmedImageSets.append(trimmedImageSet)
+        trimmedMaskSets.append(trimmedMaskSet)
+
+        return trimmedImageSets, imageSetsHR, trimmedMaskSets, maskSetsHR
 
 
 def main():
