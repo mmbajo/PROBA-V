@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from skimage import io
 from skimage.transform import rescale
+from skimage.feature import register_translation
+from scipy.ndimage import fourier_shift
 
 DEBUG = 1
 # Set the data data directory
@@ -268,7 +270,7 @@ def imageSet2NumpyArray(imageSet: Tuple, isGrayScale: bool, isNWHC: bool):
     return (imgLowResArray, imgHighResArray), (maskLowResArray, maskHighResArray)
 
 
-def correctShifts(imageSets: np.ndarray, maskSets: np.ndarray):
+def correctShifts(imageSets: List[np.ndarray], maskSets: List[np.ndarray], upsampleScale: int):
     '''
     As per the data website the low resolution images are not adjusted for its shift.
     We adjust the the low resolution images for the shift.
@@ -278,10 +280,42 @@ def correctShifts(imageSets: np.ndarray, maskSets: np.ndarray):
     Input:
     imageSets: np.ndarray -> A list of 4D array with dimensions [numLRImgs, channels, imgHeight, imgWidth]
     maskSets: np.ndarray  -> A list of 4D array with dimensions [numLRMasks, channels, imgHeight, imgWidth]
+    upsampleScale: int    -> The scale factor for which was used in the upsampling method.
 
     Output:
     Corrected and trimmed version  of the input dataset
     '''
+    # Extract constants
+    numSets = len(imageSets)
+
+    # Initialize outputs
+    newSortedImageSets = []
+    newSortedMaskSets = []
+    trimmedImageSets = []
+    trimmedMaskSets = []
+
+    # Iterate thru all image sets
+    for i in range(numSets):
+        imgSet, maskSet = imageSets[i], maskSets[i]
+        numLRImgs = imgSet.shape[0]
+        sortedIdx = np.argsort(np.sum(maskSet, axis=(1, 2, 3)))[::-1]  # descending order
+
+        imgSet = imgSet[sortedIdx, :, :, :]
+        maskSet = maskSet[sortedIdx, :, :, :]
+
+        newSortedImageSets.append(imgSet)
+        newSortedMaskSets.append(maskSet)
+
+        referenceImage = imgSet[0, :, :, :]  # most clear image
+
+        # Iterate thru all LR image for the current scene
+        # and adjust the shift wrt the reference image
+        for j in range(1, numLRImgs):
+            currImage = imgSet[j, :, :, :]
+
+            # Calculate shift
+            shift, error, diffPhase = register_translation(
+                referenceImage.squeeze(), currImage.squeeze(), upsampleScale)
 
 
 def main():
