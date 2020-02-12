@@ -195,20 +195,93 @@ def upsampleImages(imageSets: Dict, scale: int):
     return imageSets
 
 
-def imageSet2NumpyArray(imageSet: Tuple):
+def imageSet2NumpyArray(imageSet: Tuple, isGrayScale: bool, isNWHC: bool):
     '''
     This function takes in the imageSet dictionary and
-    transforms it toa list of tuples of 4D numpy array with dimensions
+    transforms it to a Tuple of 4D numpy array with dimensions
     ([numLRImgs, imgHeight, imgWidth, channels], [1, imgHeight, imgWidth, channels]).
+    This is done with the image array and the mask array.
 
     Note that the first element of the numpy array is the input and
     the second one is the expected output of the network.
+
+    Input:
+    imageSet: Tuple   -> A tuple of dictionary that take the form (ImageArrayDict, ImageMaskDict)
+    isGrayScale: bool -> Indicator if grayscale
+    isNHWC: bool      -> Indicator if the desired output is of the form
+                         [numLRImgs, imgHeight, imgWidth, channels] or
+                         [numLRImgs, channels, imgHeight, imgWidth]
+
+    Output:
+    A pair of tuples [Input, Output]
+    For each tupple has two elements, one for image and one for the mask.
     '''
-    pass
+    # Extract valuable constants
+    imgArrayDict, imgMaskDict = imageSet
+    numLowResImg = len(imgArrayDict) - 1
+    numHighResImg = 1
+    if isGrayScale:
+        heightHighRes, widthHighRes = imgArrayDict['HR'].shape
+        heightLowRes, widthLowRes = imgArrayDict[imgArrayDict.keys()[1]].shape
+        channel = 1
+    else:
+        heightHighRes, widthHighRes, channel = imgArrayDict['HR'].shape
+        heightLowRes, widthLowRes, channel = imgArrayDict[imgArrayDict.keys()[1]].shape
+
+    # Initialize numpy arrays
+    imgLowResArray = np.zeros((numLowResImg, channel, heightLowRes, widthLowRes))
+    maskLowResArray = np.zeros((numLowResImg, channel, heightLowRes, widthLowRes))
+    imgHighResArray = np.zeros((numHighResImg, channel, heightHighRes, widthHighRes))
+    maskHighResArray = np.zeros((numHighResImg, channel, heightHighRes, widthHighRes))
+
+    # Remove HR image and mask from the dictionary
+    if isGrayScale:
+        imgHighResArray[0, :, :, :] = np.array([imgArrayDict['HR']])
+        maskHighResArray[0, :, :, :] = np.array([imgMaskDict['HR']])
+    else:
+        imgHighResArray[0, :, :, :] = imgArrayDict['HR']
+        maskHighResArray[0, :, :, :] = imgMaskDict
+
+    # Delete HR arrays from the dictionary
+    del imgArrayDict['HR']
+    del imgMaskDict['HR']
+
+    for i, keyArray in enumerate(imgArrayDict.keys()):
+        imgArray, imgMask = imgArrayDict[keyArray], imgMaskDict[keyArray]
+        if isGrayScale:
+            imgLowResArray[i, :, :, :] = np.array([imgArray])
+            maskLowResArray[i, :, :, :] = np.array([imgMask])
+        else:
+            imgLowResArray[i, :, :, :] = imgArray
+            maskLowResArray[i, :, :, :] = imgMask
+
+    # Reshape to [numLRImgs, imgHeight, imgWidth, channels]
+    if isNWHC:
+        imgLowResArray = imgLowResArray.transpose((0, 2, 3, 1))
+        maskLowResArray = maskLowResArray.transpose((0, 2, 3, 1))
+        imgHighResArray = imgHighResArray.transpose((0, 2, 3, 1))
+        maskHighResArray = maskHighResArray.transpose((0, 2, 3, 1))
+
+    # Delete for memory saving
+    del imageSet
+
+    return (imgLowResArray, imgHighResArray), (maskLowResArray, maskHighResArray)
 
 
-def correctShifts(imageSets: np.ndarray):
-    pass
+def correctShifts(imageSets: np.ndarray, maskSets: np.ndarray):
+    '''
+    As per the data website the low resolution images are not adjusted for its shift.
+    We adjust the the low resolution images for the shift.
+    We calculate the shift of every low resolution image with respect to the most clear
+    low resolution image. That is the sum of all elements of its mask is the highest.
+
+    Input:
+    imageSets: np.ndarray -> A list of 4D array with dimensions [numLRImgs, channels, imgHeight, imgWidth]
+    maskSets: np.ndarray  -> A list of 4D array with dimensions [numLRMasks, channels, imgHeight, imgWidth]
+
+    Output:
+    Corrected and trimmed version  of the input dataset
+    '''
 
 
 def main():
