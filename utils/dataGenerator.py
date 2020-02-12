@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 import os
 import glob
@@ -7,6 +7,7 @@ import pandas as pd
 from skimage import io
 from skimage.transform import rescale
 
+DEBUG = 1
 # Set the data data directory
 # Download data at https://kelvins.esa.int/proba-v-super-resolution/data/
 DATA_BANK_DIRECTORY = '/home/mark/DataBank/probav_data/'
@@ -132,13 +133,14 @@ def removeImageWithOutlierPixels(imageSet: Dict, threshold: int, isTrainData: bo
             imageSetRemove.append(keySet)
             del imageSet[keySet]
 
-    print('imgSet and LR image pair to be removed are as follows \n{} \n \
-           imageSet to be removed are as follows \n{}'.format(imgSetLRPair, imageSetRemove))
+    if DEBUG:
+        print('imgSet and LR image pair to be removed are as follows \n{} \n \
+               imageSet to be removed are as follows \n{}'.format(imgSetLRPair, imageSetRemove))
 
     return imageSet
 
 
-def upsampleImages(imageSet: Dict, scale: int):
+def upsampleImages(imageSets: Dict, scale: int):
     '''
     Converts all images and its masks from 128x128 -> 384x384 by upsampling.
 
@@ -150,8 +152,11 @@ def upsampleImages(imageSet: Dict, scale: int):
     imageSet: Dict
     '''
     # Iterate for all imageSet
-    for keySet in imageSet.keys():
-        imgArrayDict, imgMaskDict = imageSet[keySet]
+    for keySet in imageSets.keys():
+        imgArrayDict, imgMaskDict = imageSets[keySet]
+
+        if DEBUG:
+            print('[ INFO ] Processing {}...'.format(keySet))
 
         # Iterate for all LR images
         for keyArray in imgArrayDict.keys():
@@ -178,11 +183,44 @@ def upsampleImages(imageSet: Dict, scale: int):
                                             preserve_range=True)
             imgMaskDict[keyArray] = imgMaskDict[keyArray].astype('bool')
 
+            if DEBUG:
+                print('[ INFO ] Image size upscaled to {}x{}.'
+                      .format(imgArrayDict[keyArray].shape[0], imgArrayDict[keyArray].shape[1]))
+
         # Reassign imageSet
-        imageSet[keySet] = tuple(imgArrayDict, imgMaskDict)
+        imageSets[keySet] = tuple(imgArrayDict, imgMaskDict)
+        if DEBUG:
+            print('[ SUCCESS ] {} upscaled.'.format(keySet))
 
-    return imageSet
+    return imageSets
 
 
-def correctShifts(imageSet: Dict):
+def imageSet2NumpyArray(imageSet: Tuple):
+    '''
+    This function takes in the imageSet dictionary and
+    transforms it toa list of tuples of 4D numpy array with dimensions
+    ([numLRImgs, imgHeight, imgWidth, channels], [1, imgHeight, imgWidth, channels]).
+
+    Note that the first element of the numpy array is the input and
+    the second one is the expected output of the network.
+    '''
     pass
+
+
+def correctShifts(imageSets: np.ndarray):
+    pass
+
+
+def main():
+    # Load dataset
+    # Remove outliers
+    # Upscale
+    # Remove outliers
+    # Convert to numpy array
+    # Correct shifts
+    # Return a list of input outputs (maybe a 5D numpy array)
+    pass
+
+
+if __name__ == '__main__':
+    main()
