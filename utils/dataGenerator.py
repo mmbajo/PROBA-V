@@ -27,10 +27,28 @@ def main():
     imgAllSets = removeImageWithOutlierPixels(imageSet=imgAllSets, threshold=60000, isTrainData=True)
     # Upscale
     imgAllSets = upsampleImages(imageSets=imgAllSets, scale=3)  # 128x128 -> 384x384
+
     # Convert to numpy array
-    ioImgPair, ioMaskPair = imageSet2NumpyArray(imageSet=imgAllSets, isGrayScale=True, isNWHC=False)
+    imgLRSets, imgHRSets, maskLRSets, maskHRSets = [], [], [], []
+    names = []
+    for name in imgAllSets.keys():
+        currSet = imgAllSets[name]
+        ioImgPair, ioMaskPair = imageSet2NumpyArray(imageSet=currSet, isGrayScale=True, isNWHC=False)
+        lrImg, hrImg = ioImgPair
+        lrMask, hrMask = ioMaskPair
+
+        imgLRSets.append(lrImg)
+        imgHRSets.append(hrImg)
+        maskLRSets.append(lrMask)
+        maskHRSets.append(hrMask)
+        names.append(name)
+
     # Correct shifts
+    imgLRSets, imgHRSets, maskLRSets, maskHRSets, names = correctShifts(imgLRSets, maskLRSets,
+                                                                        imgHRSets, maskHRSets,
+                                                                        names, upsampleScale=3)
     # Return a list of input outputs (maybe a 5D numpy array)
+    normArray = generateNormArray(dirList=names)
     pass
 
 
@@ -290,7 +308,8 @@ def imageSet2NumpyArray(imageSet: Tuple, isGrayScale: bool, isNWHC: bool):
 
 
 def correctShifts(imageSetsLR: List[np.ndarray], maskSetsLR: List[np.ndarray],
-                  imageSetsHR: List[np.ndarray], maskSetsHR: List[np.ndarray], upsampleScale: int):
+                  imageSetsHR: List[np.ndarray], maskSetsHR: List[np.ndarray],
+                  names: List[str], upsampleScale: int):
     '''
     As per the data website the low resolution images are not adjusted for its shift.
     We adjust the the low resolution images for the shift.
@@ -376,13 +395,14 @@ def correctShifts(imageSetsLR: List[np.ndarray], maskSetsLR: List[np.ndarray],
             # Remove HR Image and its mask
             del imageSetsHR[i]
             del maskSetsHR[i]
+            del names[i]
             continue
 
         # Append to trimmed list
         trimmedImageSets.append(trimmedImageSet)
         trimmedMaskSets.append(trimmedMaskSet)
 
-        return trimmedImageSets, imageSetsHR, trimmedMaskSets, maskSetsHR
+        return trimmedImageSets, imageSetsHR, trimmedMaskSets, maskSetsHR, names
 
 
 if __name__ == '__main__':
