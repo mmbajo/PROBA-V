@@ -1,4 +1,5 @@
 from typing import List, Tuple
+import argparse
 
 import os
 import glob
@@ -13,6 +14,24 @@ DEBUG = 1
 # Set the data data directory
 # Download data at https://kelvins.esa.int/proba-v-super-resolution/data/
 DATA_BANK_DIRECTORY = '/home/mark/DataBank/probav_data/'
+
+
+def parser():
+    pass
+
+
+def main():
+    # Load dataset
+    imgAllSets = generateImageSet(isTrainData=True, NIR=True)
+    # Remove outliers
+    imgAllSets = removeImageWithOutlierPixels(imageSet=imgAllSets, threshold=60000, isTrainData=True)
+    # Upscale
+    imgAllSets = upsampleImages(imageSets=imgAllSets, scale=3)  # 128x128 -> 384x384
+    # Convert to numpy array
+    ioImgPair, ioMaskPair = imageSet2NumpyArray(imageSet=imgAllSets, isGrayScale=True, isNWHC=False)
+    # Correct shifts
+    # Return a list of input outputs (maybe a 5D numpy array)
+    pass
 
 
 def generateDataDir(isTrainData: bool, NIR: bool):
@@ -364,17 +383,6 @@ def correctShifts(imageSetsLR: List[np.ndarray], maskSetsLR: List[np.ndarray],
         trimmedMaskSets.append(trimmedMaskSet)
 
         return trimmedImageSets, imageSetsHR, trimmedMaskSets, maskSetsHR
-
-
-def main():
-    # Load dataset
-    # Remove outliers
-    # Upscale
-    # Remove outliers
-    # Convert to numpy array
-    # Correct shifts
-    # Return a list of input outputs (maybe a 5D numpy array)
-    pass
 
 
 if __name__ == '__main__':
