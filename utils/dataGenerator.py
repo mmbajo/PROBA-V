@@ -5,6 +5,7 @@ import os
 import glob
 import numpy as np
 import pandas as pd
+import random
 from skimage import io
 from skimage.transform import rescale
 from skimage.feature import register_translation
@@ -24,20 +25,48 @@ def parser():
     return opt
 
 
-def main():
+def main(opt):
     # Load dataset
     imgAllSets = generateImageSet(isTrainData=True, NIR=True)
+
     # Remove outliers
     imgAllSets = removeImageWithOutlierPixels(imageSet=imgAllSets, threshold=60000, isTrainData=True)
-    # Upscale
-    imgAllSets = upsampleImages(imageSets=imgAllSets, scale=3)  # 128x128 -> 384x384
 
-    # Convert to numpy array
+    # Upscale
+    imgAllSetsUpScaled = upsampleImages(imageSets=imgAllSets, scale=3)  # 128x128 -> 384x384
+
+    # Convert upscaled dataset to numpy array
+    outputUpscaled = imageSet2NumpyArrayHelper(imgAllSetsUpScaled, isGrayScale=True, isNHWC=False)
+    imgLRSetsUpscaled, imgHRSets, maskLRSetsUpsacaled, maskHRSets, names = outputUpscaled
+
+    # Convert normal dataset to numpy array
+    outputNorm = imageSet2NumpyArrayHelper(imgAllSets, isGrayScale=True, isNHWC=False)
+    imgLRSets, _, maskLRSets, _, _ = outputNorm
+
+    # Get shifts and trim dataset based on shift threshold
+    # Read more about this shifts happening in LR Images here
+    # https://kelvins.esa.int/proba-v-super-resolution/data/
+    outputFromCorrectShifts = correctShifts(imgLRSetsUpscaled, maskLRSetsUpsacaled,
+                                            imgLRSets, maskLRSets,
+                                            imgHRSets, maskHRSets,
+                                            names, upsampleScale=1)
+    imgLRSetsUpscaled, imgLRSets, imageSetsHR, \
+        maskLRSetsUpsacaled, maskLRSets, maskSetsHR, shifts, names = outputFromCorrectShifts
+
+    # Return a list of input outputs (maybe a 5D numpy array)
+    normArray = generateNormArray(dirList=names)
+
+    # Create Patches
+
+    pass
+
+
+def imageSet2NumpyArrayHelper(imageSets: Dict, isGrayScale: bool, isNHWC: bool):
     imgLRSets, imgHRSets, maskLRSets, maskHRSets = [], [], [], []
     names = []
-    for name in imgAllSets.keys():
-        currSet = imgAllSets[name]
-        ioImgPair, ioMaskPair = imageSet2NumpyArray(imageSet=currSet, isGrayScale=True, isNWHC=False)
+    for name in imageSets.keys():
+        currSet = imageSets[name]
+        ioImgPair, ioMaskPair = imageSet2NumpyArray(imageSet=currSet, isGrayScale=isGrayScale, isNWHC=isNHWC)
         lrImg, hrImg = ioImgPair
         lrMask, hrMask = ioMaskPair
 
@@ -47,16 +76,31 @@ def main():
         maskHRSets.append(hrMask)
         names.append(name)
 
-    # Correct shifts
-    imgLRSets, imgHRSets, maskLRSets, maskHRSets, names = correctShifts(imgLRSets, maskLRSets,
-                                                                        imgHRSets, maskHRSets,
-                                                                        names, upsampleScale=3)
-    # Return a list of input outputs (maybe a 5D numpy array)
-    normArray = generateNormArray(dirList=names)
+    return (imgLRSets, imgHRSets, maskLRSets, maskHRSets, names)
 
-    # Create Patches
 
+def generatePatchDataset():
     pass
+
+
+def sampleCoordinates(imgSize: List[int], patchSize: List[int]):
+    '''
+    Sample a random patch with size patchSize in imgSize!
+
+    Input:
+    imgSize: List[int] -> size of the image to patch sample from.
+    patchSize: List[int] -> size of patch to sample.
+
+    Output:
+    topLeftXYCoordinates, btmRightXYCoordinates
+    '''
+
+    topLeftX = random.randint(0, imgSize[0] - patchSize[0] - 1)
+    topLeftY = random.randint(0, imgSize[1] - patchSize[1] - 1)
+    btmRightX = topLeftX + patchSize[0]
+    btmRightY = topLeftY + patchSize[1]
+
+    return (topLeftX, topLeftY), (btmRightX, btmRightY)
 
 
 def generateDataDir(isTrainData: bool, NIR: bool):
@@ -314,7 +358,8 @@ def imageSet2NumpyArray(imageSet: Tuple, isGrayScale: bool, isNWHC: bool):
     return (imgLowResArray, imgHighResArray), (maskLowResArray, maskHighResArray)
 
 
-def correctShifts(imageSetsLR: List[np.ndarray], maskSetsLR: List[np.ndarray],
+def correctShifts(imageSetsLRTrans: List[np.ndarray], maskSetsLRTrans: List[np.ndarray],
+                  imageSetsLROrig: List[np.ndarray], maskSetsLROrig: List[np.ndarray],
                   imageSetsHR: List[np.ndarray], maskSetsHR: List[np.ndarray],
                   names: List[str], upsampleScale: int):
     '''
@@ -332,42 +377,56 @@ def correctShifts(imageSetsLR: List[np.ndarray], maskSetsLR: List[np.ndarray],
     Corrected and trimmed version  of the input dataset
     '''
     # Extract constants
-    numSets = len(imageSetsLR)
+    numSets = len(imageSetsLRTrans)
 
     # Initialize outputs
     newSortedImageSets = []
     newSortedMaskSets = []
-    trimmedImageSets = []
-    trimmedMaskSets = []
+    trimmedImageSetsTrans = []
+    trimmedMaskSetsTrans = []
+    trimmedImageSetsOrig = []
+    trimmedMaskSetsOrig = []
+    shifts = []
 
     # Iterate thru all image sets
     for i in range(numSets):
-        imgSet, maskSet = imageSetsLR[i], maskSetsLR[i]
-        numLRImgs = imgSet.shape[0]
-        sortedIdx = np.argsort(np.sum(maskSet, axis=(1, 2, 3)))[::-1]  # descending order
+        imgSetTrans, maskSetTrans = imageSetsLRTrans[i], maskSetsLRTrans[i]
+        imgSetOrig, maskSetOrig = imageSetsLROrig[i], maskSetsLROrig[i]
 
-        imgSet = imgSet[sortedIdx, :, :, :]
-        maskSet = maskSet[sortedIdx, :, :, :]
+        numLRImgs = imgSetTrans.shape[0]
+        sortedIdx = np.argsort(np.sum(maskSetTrans, axis=(1, 2, 3)))[::-1]  # descending order
 
-        newSortedImageSets.append(imgSet)
-        newSortedMaskSets.append(maskSet)
+        imgSetTrans = imgSetTrans[sortedIdx, :, :, :]
+        maskSetTrans = maskSetTrans[sortedIdx, :, :, :]
+        imgSetOrig = imgSetOrig[sortedIdx, :, :, :]
+        maskSetOrig = maskSetOrig[sortedIdx, :, :, :]
 
-        referenceImage = imgSet[0, :, :, :]  # most clear image
-        referenceMask = maskSet[0, :, :, :]  # highest cummulative sum
+        newSortedImageSets.append(imgSetTrans)
+        newSortedMaskSets.append(maskSetTrans)
+
+        referenceImage = imgSetTrans[0, :, :, :]  # most clear image
+        referenceMask = maskSetTrans[0, :, :, :]  # highest cummulative sum
+        origImage = imgSetOrig[0, :, :, :]
+        origMask = maskSetOrig[0, :, :, :]
 
         # Copy arrays for stacking
-        trimmedImageSet = np.array([np.copy(referenceImage)])
-        trimmedMaskSet = np.array([np.copy(referenceMask)])
+        trimmedImageSetTrans = np.array([np.copy(referenceImage)])
+        trimmedMaskSetTrans = np.array([np.copy(referenceMask)])
+        trimmedImageSetOrig = np.array([np.copy(origImage)])
+        trimmedMaskSetOrig = np.array([np.copy(origMask)])
 
         # Number of LR images included
         counter = 1
+
+        # Initialize setShift accumulator
+        setShift = []
 
         # Iterate thru all LR image for the current scene
         # and adjust the shift wrt the reference image
         for j in range(1, numLRImgs):
             # Initialize current images and mask
-            currImage = imgSet[j, :, :, :]
-            currMask = maskSet[j, :, :, :]
+            currImage = imgSetTrans[j, :, :, :]
+            currMask = maskSetTrans[j, :, :, :]
 
             # Calculate shift
             shift, error, diffPhase = register_translation(
@@ -377,6 +436,9 @@ def correctShifts(imageSetsLR: List[np.ndarray], maskSetsLR: List[np.ndarray],
             # Skip those images with 4 shifts and above
             if (np.abs(shift) > 4).any():
                 continue
+
+            # Accumulate good shifts
+            setShift.append(shift)
 
             # Get shapes -> format may be CWH or WHC
             x, y, z = currImage.shape
@@ -392,8 +454,10 @@ def correctShifts(imageSetsLR: List[np.ndarray], maskSetsLR: List[np.ndarray],
             correctedMask = correctedMask.reshape((x, y, z))
 
             # Stack to the reference iamge
-            trimmedImageSet = np.stack(trimmedImageSet, np.array([correctedImage]))
-            trimmedMaskSet = np.stack(trimmedMaskSet, np.array([correctedMask]))
+            trimmedImageSetTrans = np.stack(trimmedImageSetTrans, np.array([correctedImage]))
+            trimmedMaskSetTrans = np.stack(trimmedMaskSetTrans, np.array([correctedMask]))
+            trimmedImageSetOrig = np.stack(trimmedImageSetOrig, np.array([imgSetOrig[j, :, :, :]]))
+            trimmedMaskSetOrig = np.stack(trimmedMaskSetOrig, np.array([maskSetOrig[j, :, :, :]]))
             counter += 1
 
         # Remove imagesets with LR images less than 9
@@ -405,12 +469,19 @@ def correctShifts(imageSetsLR: List[np.ndarray], maskSetsLR: List[np.ndarray],
             del names[i]
             continue
 
-        # Append to trimmed list
-        trimmedImageSets.append(trimmedImageSet)
-        trimmedMaskSets.append(trimmedMaskSet)
+        # shift to another big array of shifts goddammit
+        shifts.append(setShift)
 
-        return trimmedImageSets, imageSetsHR, trimmedMaskSets, maskSetsHR, names
+        # Append to trimmed list
+        trimmedImageSetsTrans.append(trimmedImageSetTrans)
+        trimmedMaskSetsTrans.append(trimmedMaskSetTrans)
+        trimmedImageSetsOrig.append(trimmedImageSetOrig)
+        trimmedMaskSetsOrig.append(trimmedMaskSetOrig)
+
+    return (trimmedImageSetsTrans, trimmedImageSetsOrig, imageSetsHR,
+            trimmedMaskSetsTrans, trimmedMaskSetsOrig, maskSetsHR, shifts, names)
 
 
 if __name__ == '__main__':
-    main()
+    opt = parser()
+    main(opt)
