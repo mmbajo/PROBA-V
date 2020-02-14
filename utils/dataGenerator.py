@@ -17,7 +17,11 @@ DATA_BANK_DIRECTORY = '/home/mark/DataBank/probav_data/'
 
 
 def parser():
-    pass
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dir', default=DATA_BANK_DIRECTORY, type=str)
+    parser.add_argument('--split', default=0.7, type=float)
+    opt = parser.parse_args()
+    return opt
 
 
 def main():
@@ -49,6 +53,9 @@ def main():
                                                                         names, upsampleScale=3)
     # Return a list of input outputs (maybe a 5D numpy array)
     normArray = generateNormArray(dirList=names)
+
+    # Create Patches
+
     pass
 
 
