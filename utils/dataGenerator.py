@@ -12,7 +12,7 @@ from skimage.transform import rescale
 from skimage.feature import register_translation
 from scipy.ndimage import fourier_shift
 
-DEBUG = 1
+DEBUG = 0
 # Set the data data directory
 # Download data at https://kelvins.esa.int/proba-v-super-resolution/data/
 DATA_BANK_DIRECTORY = '/home/mark/DataBank/probav_data/'
@@ -20,8 +20,9 @@ DATA_BANK_DIRECTORY = '/home/mark/DataBank/probav_data/'
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dir', default=DATA_BANK_DIRECTORY, type=str)
-    parser.add_argument('--split', default=0.7, type=float)
+    parser.add_argument('--band', default='NIR', type=str)
+    parser.add_argument('--dir', type=str, default=DATA_BANK_DIRECTORY)
+    parser.add_argument('--split', type=float, default=0.7)
     opt = parser.parse_args()
     return opt
 
@@ -36,13 +37,10 @@ def main(opt):
     # Upscale
     imgAllSetsUpScaled = upsampleImages(imageSets=imgAllSets, scale=3)  # 128x128 -> 384x384
 
-    # Convert upscaled dataset to numpy array
-    outputUpscaled = imageSet2NumpyArrayHelper(imgAllSetsUpScaled, isGrayScale=True, isNHWC=False)
-    imgLRSetsUpscaled, imgHRSets, maskLRSetsUpsacaled, maskHRSets, names = outputUpscaled
-
-    # Convert normal dataset to numpy array
-    outputNorm = imageSet2NumpyArrayHelper(imgAllSets, isGrayScale=True, isNHWC=False)
-    imgLRSets, _, maskLRSets, _, _ = outputNorm
+    # Convert dataset to numpy array
+    output = imageSet2NumpyArrayHelper(imgAllSetsUpScaled, imgAllSets, isGrayScale=True, isNHWC=False)
+    imgLRSetsUpscaled, imgLRSets, imgHRSets, \
+        maskLRSetsUpsacaled, maskLRSets, maskHRSets, names = output
 
     # Get shifts and trim dataset based on shift threshold
     # Read more about this shifts happening in LR Images here
@@ -54,34 +52,57 @@ def main(opt):
     imgLRSetsUpscaled, imgLRSets, imgHRSets, \
         maskLRSetsUpsacaled, maskLRSets, maskHRSets, shifts, names = outputFromCorrectShifts
 
-    # Return a list of input outputs (maybe a 5D numpy array)
-    normArray = generateNormArray(dirList=names)
+    # Create inputDictionary
+    inputDictionary = {'imgLRSetsUpscaled': imgLRSetsUpscaled,
+                       'imgLRSets': imgLRSets,
+                       'imgHRSets': imgHRSets,
+                       'maskLRSetsUpsacaled': maskLRSetsUpsacaled,
+                       'maskLRSets': maskLRSets,
+                       'maskHRSets': maskHRSets,
+                       'shifts': shifts,
+                       'names': names}
 
     # Create Patches
+    patchesDict = generatePatchDataset(inputDictionary, useUpsample=True, patchSize=96,
+                                       thresholdPatchesPerImgSet=20, thresholdClarityLR=0.7,
+                                       thresholdClarityHR=0.85)
 
-    pass
+    # Return a list of input outputs (maybe a 5D numpy array)
+    normArray = generateNormArray(dirList=patchesDict['names'])
+
+    # Save to file for training
 
 
-def imageSet2NumpyArrayHelper(imageSets: Dict, isGrayScale: bool, isNHWC: bool):
+def imageSet2NumpyArrayHelper(imageSetsUpscaled: Dict, imageSets: Dict, isGrayScale: bool, isNHWC: bool):
     '''
     Helper function for imageSet2NumpyArray function.
     Iterates thru all the elemetns in the dictionary and applies the imageSet2NumpyArray function
     '''
-    imgLRSets, imgHRSets, maskLRSets, maskHRSets = [], [], [], []
+    imgLRSetsUpscaled, imgLRSets, imgHRSets, \
+        maskLRSetsUpsacaled, maskLRSets, maskHRSets = [], [], [], [], [], []
     names = []
-    for name in imageSets.keys():
-        currSet = imageSets[name]
-        ioImgPair, ioMaskPair = imageSet2NumpyArray(imageSet=currSet, isGrayScale=isGrayScale, isNWHC=isNHWC)
-        lrImg, hrImg = ioImgPair
-        lrMask, hrMask = ioMaskPair
+    for name in tqdm(imageSets.keys(), desc='Converting imageSets into numpy arrays'):
+        currSetUpscaled = imageSetsUpscaled[name]
+        ioImgPairUpscaled, ioMaskPairUpscaled = imageSet2NumpyArray(imageSet=currSetUpscaled,
+                                                                    isGrayScale=isGrayScale, isNWHC=isNHWC)
+        lrImgUpscaled, hrImg = ioImgPairUpscaled
+        lrMaskUpscaled, hrMask = ioMaskPairUpscaled
 
+        currSet = imageSets[name]
+        ioImgPair, ioMaskPair = imageSet2NumpyArray(imageSet=currSet,
+                                                    isGrayScale=isGrayScale, isNWHC=isNHWC)
+        lrImg, _ = ioImgPairUpscaled
+        lrMask, _ = ioMaskPairUpscaled
+
+        imgLRSetsUpscaled.append(lrImgUpscaled)
+        maskLRSetsUpsacaled.append(lrMaskUpscaled)
         imgLRSets.append(lrImg)
         imgHRSets.append(hrImg)
         maskLRSets.append(lrMask)
         maskHRSets.append(hrMask)
         names.append(name)
 
-    return (imgLRSets, imgHRSets, maskLRSets, maskHRSets, names)
+    return (imgLRSetsUpscaled, imgLRSets, imgHRSets, maskLRSetsUpsacaled, maskLRSets, maskHRSets, names)
 
 
 def generatePatchDataset(inputDictionary: Dict, useUpsample: bool, patchSize: int,
@@ -119,6 +140,7 @@ def generatePatchDataset(inputDictionary: Dict, useUpsample: bool, patchSize: in
     maskLRPatches, maskHRPatches = [], []
     coordinates = []
     shiftsPatch = []
+    names = []
 
     # Extract constants
     numSets = len(inputDictionary['imgLRSets' + isUpsample])
@@ -133,6 +155,8 @@ def generatePatchDataset(inputDictionary: Dict, useUpsample: bool, patchSize: in
 
         currImgSetHR = inputDictionary['imgHRSets'][i]
         currMaskSetHR = inputDictionary['maskHRSets'][i]
+
+        currName = inputDictionary['names'][i]
 
         # Initialize accumulators
         currTrial = 0
@@ -173,6 +197,7 @@ def generatePatchDataset(inputDictionary: Dict, useUpsample: bool, patchSize: in
                 maskHRPatches.append(patchMaskHR)
                 coordinatesForTheSet.append((topLeft, btmRight))
                 shiftsPatch.append(shift[i])
+                names.append(currName)
                 currNumPatches += 1
 
             currTrial += 1
@@ -180,12 +205,13 @@ def generatePatchDataset(inputDictionary: Dict, useUpsample: bool, patchSize: in
         coordinates.append(coordinatesForTheSet)
 
     # Append to outputDict
-    outputDict['imgPatchesLR'] = np.array(imgLRPatches)
-    outputDict['maskPatchesLR'] = np.array(maskLRPatches)
-    outputDict['imgPatchesHR'] = np.array(imgHRPatches)
-    outputDict['maskPatchesHR'] = np.array(maskHRPatches)
+    outputDict['imgPatchesLR'] = imgLRPatches
+    outputDict['maskPatchesLR'] = maskLRPatches
+    outputDict['imgPatchesHR'] = imgHRPatches
+    outputDict['maskPatchesHR'] = maskHRPatches
     outputDict['shifts'] = shiftsPatch
     outputDict['coordinates'] = coordinates
+    outputDict['names'] = names
 
     return outputDict
 
@@ -291,7 +317,7 @@ def generateImageSet(isTrainData: bool, NIR: bool):
 
     dirList = generateDataDir(isTrainData, NIR)
     imageSet = {imgSet: generateImageSetDict(imgSet, isTrainData, NIR)
-                for imgSet in dirList}
+                for imgSet in tqdm(dirList, desc='Loading data into a dictionary        ')}
     return imageSet
 
 
@@ -315,18 +341,18 @@ def removeImageWithOutlierPixels(imageSet: Dict, threshold: int, isTrainData: bo
     numImagesThreshold = 10 if isTrainData else 9
 
     # Iterate through all arrays and determine if they have outliers
-    for keySet in imageSet.keys():
+    for keySet in tqdm(list(imageSet.keys()), desc='Removing outliers in dataset          '):
         imgArrayDict, imgMaskDict = imageSet[keySet]
-        for keyArray in imgArrayDict.keys():
+        for keyArray in list(imgArrayDict.keys()):
             # Remove images with high pixel values
             if keyArray == 'HR':
                 continue
-            if (imgArrayDict[keyArray] < threshold).any():
+            if (imgArrayDict[keyArray] > threshold).any():
                 imgSetLRPair.append((keySet, keyArray))
                 del imgArrayDict[keyArray]
                 del imgMaskDict[keyArray]
         # Remove images with LR images below 9
-        if len(imageSet[keySet]) < numImagesThreshold:
+        if len(imgArrayDict.keys()) < numImagesThreshold:
             imageSetRemove.append(keySet)
             del imageSet[keySet]
 
@@ -349,7 +375,7 @@ def upsampleImages(imageSets: Dict, scale: int):
     imageSet: Dict
     '''
     # Iterate for all imageSet
-    for keySet in imageSets.keys():
+    for keySet in tqdm(imageSets.keys(), desc='Upscaling LowRes images               '):
         imgArrayDict, imgMaskDict = imageSets[keySet]
 
         if DEBUG:
@@ -385,7 +411,7 @@ def upsampleImages(imageSets: Dict, scale: int):
                       .format(imgArrayDict[keyArray].shape[0], imgArrayDict[keyArray].shape[1]))
 
         # Reassign imageSet
-        imageSets[keySet] = tuple(imgArrayDict, imgMaskDict)
+        imageSets[keySet] = tuple([imgArrayDict, imgMaskDict])
         if DEBUG:
             print('[ SUCCESS ] {} upscaled.'.format(keySet))
 
@@ -419,11 +445,11 @@ def imageSet2NumpyArray(imageSet: Tuple, isGrayScale: bool, isNWHC: bool):
     numHighResImg = 1
     if isGrayScale:
         heightHighRes, widthHighRes = imgArrayDict['HR'].shape
-        heightLowRes, widthLowRes = imgArrayDict[imgArrayDict.keys()[1]].shape
+        heightLowRes, widthLowRes = imgArrayDict[list(imgArrayDict.keys())[1]].shape
         channel = 1
     else:
         heightHighRes, widthHighRes, channel = imgArrayDict['HR'].shape
-        heightLowRes, widthLowRes, channel = imgArrayDict[imgArrayDict.keys()[1]].shape
+        heightLowRes, widthLowRes, channel = imgArrayDict[list(imgArrayDict.keys())[1]].shape
 
     # Initialize numpy arrays
     imgLowResArray = np.zeros((numLowResImg, channel, heightLowRes, widthLowRes))
@@ -439,11 +465,10 @@ def imageSet2NumpyArray(imageSet: Tuple, isGrayScale: bool, isNWHC: bool):
         imgHighResArray[0, :, :, :] = imgArrayDict['HR']
         maskHighResArray[0, :, :, :] = imgMaskDict
 
-    # Delete HR arrays from the dictionary
-    del imgArrayDict['HR']
-    del imgMaskDict['HR']
-
-    for i, keyArray in enumerate(imgArrayDict.keys()):
+    i = 0
+    for keyArray in imgArrayDict.keys():
+        if keyArray == 'HR':
+            continue
         imgArray, imgMask = imgArrayDict[keyArray], imgMaskDict[keyArray]
         if isGrayScale:
             imgLowResArray[i, :, :, :] = np.array([imgArray])
@@ -451,6 +476,8 @@ def imageSet2NumpyArray(imageSet: Tuple, isGrayScale: bool, isNWHC: bool):
         else:
             imgLowResArray[i, :, :, :] = imgArray
             maskLowResArray[i, :, :, :] = imgMask
+        # increment
+        i += 1
 
     # Reshape to [numLRImgs, imgHeight, imgWidth, channels]
     if isNWHC:
@@ -496,7 +523,7 @@ def correctShifts(imageSetsLRTrans: List[np.ndarray], maskSetsLRTrans: List[np.n
     shifts = []
 
     # Iterate thru all image sets
-    for i in range(numSets):
+    for i in tqdm(range(numSets), desc='Correcting shifts in imagesets        '):
         imgSetTrans, maskSetTrans = imageSetsLRTrans[i], maskSetsLRTrans[i]
         imgSetOrig, maskSetOrig = imageSetsLROrig[i], maskSetsLROrig[i]
 
@@ -517,10 +544,10 @@ def correctShifts(imageSetsLRTrans: List[np.ndarray], maskSetsLRTrans: List[np.n
         origMask = maskSetOrig[0, :, :, :]
 
         # Copy arrays for stacking
-        trimmedImageSetTrans = np.array([np.copy(referenceImage)])
-        trimmedMaskSetTrans = np.array([np.copy(referenceMask)])
-        trimmedImageSetOrig = np.array([np.copy(origImage)])
-        trimmedMaskSetOrig = np.array([np.copy(origMask)])
+        trimmedImageSetTrans = [np.array([np.copy(referenceImage)])]
+        trimmedMaskSetTrans = [np.array([np.copy(referenceMask)])]
+        trimmedImageSetOrig = [np.array([np.copy(origImage)])]
+        trimmedMaskSetOrig = [np.array([np.copy(origMask)])]
 
         # Number of LR images included
         counter = 1
@@ -561,15 +588,16 @@ def correctShifts(imageSetsLRTrans: List[np.ndarray], maskSetsLRTrans: List[np.n
             correctedMask = correctedMask.reshape((x, y, z))
 
             # Stack to the reference iamge
-            trimmedImageSetTrans = np.stack(trimmedImageSetTrans, np.array([correctedImage]))
-            trimmedMaskSetTrans = np.stack(trimmedMaskSetTrans, np.array([correctedMask]))
-            trimmedImageSetOrig = np.stack(trimmedImageSetOrig, np.array([imgSetOrig[j, :, :, :]]))
-            trimmedMaskSetOrig = np.stack(trimmedMaskSetOrig, np.array([maskSetOrig[j, :, :, :]]))
+            trimmedImageSetTrans.append(np.array([correctedImage]))
+            trimmedMaskSetTrans.append(np.array([correctedMask]))
+            trimmedImageSetOrig.append(np.array([imgSetOrig[j, :, :, :]]))
+            trimmedMaskSetOrig.append(np.array([maskSetOrig[j, :, :, :]]))
             counter += 1
 
         # Remove imagesets with LR images less than 9
         if counter < 9:
-            print('An image set has been remove due to low LR image number.')
+            if DEBUG:
+                print('An image set has been remove due to low LR image number.')
             # Remove HR Image and its mask
             del imageSetsHR[i]
             del maskSetsHR[i]
@@ -580,10 +608,10 @@ def correctShifts(imageSetsLRTrans: List[np.ndarray], maskSetsLRTrans: List[np.n
         shifts.append(setShift)
 
         # Append to trimmed list
-        trimmedImageSetsTrans.append(trimmedImageSetTrans)
-        trimmedMaskSetsTrans.append(trimmedMaskSetTrans)
-        trimmedImageSetsOrig.append(trimmedImageSetOrig)
-        trimmedMaskSetsOrig.append(trimmedMaskSetOrig)
+        trimmedImageSetsTrans.append(np.stack(trimmedImageSetTrans))
+        trimmedMaskSetsTrans.append(np.stack(trimmedMaskSetTrans))
+        trimmedImageSetsOrig.append(np.stack(trimmedImageSetOrig))
+        trimmedMaskSetsOrig.append(np.stack(trimmedMaskSetOrig))
 
     return (trimmedImageSetsTrans, trimmedImageSetsOrig, imageSetsHR,
             trimmedMaskSetsTrans, trimmedMaskSetsOrig, maskSetsHR, shifts, names)
