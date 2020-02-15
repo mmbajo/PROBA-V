@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 import argparse
 
 import os
@@ -6,6 +6,7 @@ import glob
 import numpy as np
 import pandas as pd
 import random
+from tqdm import tqdm
 from skimage import io
 from skimage.transform import rescale
 from skimage.feature import register_translation
@@ -50,8 +51,8 @@ def main(opt):
                                             imgLRSets, maskLRSets,
                                             imgHRSets, maskHRSets,
                                             names, upsampleScale=1)
-    imgLRSetsUpscaled, imgLRSets, imageSetsHR, \
-        maskLRSetsUpsacaled, maskLRSets, maskSetsHR, shifts, names = outputFromCorrectShifts
+    imgLRSetsUpscaled, imgLRSets, imgHRSets, \
+        maskLRSetsUpsacaled, maskLRSets, maskHRSets, shifts, names = outputFromCorrectShifts
 
     # Return a list of input outputs (maybe a 5D numpy array)
     normArray = generateNormArray(dirList=names)
@@ -62,6 +63,10 @@ def main(opt):
 
 
 def imageSet2NumpyArrayHelper(imageSets: Dict, isGrayScale: bool, isNHWC: bool):
+    '''
+    Helper function for imageSet2NumpyArray function.
+    Iterates thru all the elemetns in the dictionary and applies the imageSet2NumpyArray function
+    '''
     imgLRSets, imgHRSets, maskLRSets, maskHRSets = [], [], [], []
     names = []
     for name in imageSets.keys():
@@ -79,8 +84,110 @@ def imageSet2NumpyArrayHelper(imageSets: Dict, isGrayScale: bool, isNHWC: bool):
     return (imgLRSets, imgHRSets, maskLRSets, maskHRSets, names)
 
 
-def generatePatchDataset():
-    pass
+def generatePatchDataset(inputDictionary: Dict, useUpsample: bool, patchSize: int,
+                         thresholdPatchesPerImgSet: int, thresholdClarityLR: float,
+                         thresholdClarityHR: float):
+    '''
+    Sample patches from the low res image.
+    Patches are considered good at it is atleast n% cleared.
+
+    Input:
+    inputDictionary: Dict -> a dictionary containing the LR images and its upscaled versions, the HR images,
+                             upsampleScale, names, shifts, and respective masks.
+    patchSize: int -> size of patch to sample
+    thresholdPatchesPerImgSet: int
+
+    Output:
+    patchesPerImgSet: Dict
+    '''
+    # Set maximum number of trials to get a viable Patches
+    MAX_TRIAL = 100000
+    PATCH_PER_SET = 9
+
+    # Initialize outputDict
+    outputDict = {}
+
+    # Do we use the upsampled images?
+    isUpsample = ''
+    scale = inputDictionary['upsampleScale']
+    if useUpsample:
+        key = 'Upscaled'
+        scale = 1
+
+    # Initialize accumulators
+    imgLRPatches, imgHRPatches = [], []
+    maskLRPatches, maskHRPatches = [], []
+    coordinates = []
+    shiftsPatch = []
+
+    # Extract constants
+    numSets = len(inputDictionary['imgLRSets' + isUpsample])
+    shapeUpscaled = list(inputDictionary['imgLRSets' + isUpsample][0][0][0].shape)
+    totalNumPixInPatch = patchSize * patchSize
+
+    # Iterate thru all sets
+    for i in tqdm(range(numSets)):
+        # Extract relevant arrays from the inputDictionary
+        currImgSetLR = inputDictionary['imgLRSets' + isUpsample][i]
+        currMaskSetLR = inputDictionary['maskLRSetsUpsacaled' + isUpsample][i]
+
+        currImgSetHR = inputDictionary['imgHRSets'][i]
+        currMaskSetHR = inputDictionary['maskHRSets'][i]
+
+        # Initialize accumulators
+        currTrial = 0
+        currNumPatches = 0
+        coordinatesForTheSet = []
+
+        # Trials or SUCCESS
+        while True:
+            # Define stopping condition: MAX_TRIAL is exceeded or thresholdPatchesPerImgSet is satisfied
+            if currNumPatches >= thresholdPatchesPerImgSet or currTrial >= MAX_TRIAL:
+                break
+
+            # Sample topleft and bottomright ccoordinates for a patch
+            topLeft, btmRight = sampleCoordinates(imgSize=shapeUpscaled, patchSize=[patchSize, patchSize])
+            xZero, yZero = topLeft
+            xOne, yOne = btmRight
+
+            # Extract patches using the sampled coordinates
+            patchImgLR = currImgSetLR[:, :, yZero: yOne, xZero: xOne]  # [numSamples, channels, height, width]
+            patchImgHR = currImgSetHR[:, :, yZero*scale: yOne*scale, xZero*scale: xOne*scale]
+
+            patchMaskLR = currMaskSetLR[:, :, yZero: yOne, xZero: xOne]  # [numSamples, channels, height, width]
+            patchMaskHR = currMaskSetHR[:, :, yZero*scale: yOne*scale, xZero*scale: xOne*scale]
+
+            # Check clarity of the low resulution patches
+            clearPercentageArrayLR = np.sum(patchMaskLR, axis=(1, 2, 3)) / totalNumPixInPatch
+            isSampleClearLR = clearPercentageArrayLR > thresholdClarityLR
+            isSampleGoodLR = np.sum(isSampleClearLR) > PATCH_PER_SET
+
+            clearPercentageArrayHR = np.sum(patchMaskHR, axis=(1, 2, 3)) / totalNumPixInPatch
+            isSampleClearHR = clearPercentageArrayHR > thresholdClarityHR
+            isSampleGoodHR = np.sum(isSampleClearHR)
+
+            if isSampleGoodLR and isSampleGoodHR:
+                imgLRPatches.append(patchImgLR)
+                imgHRPatches.append(patchImgHR)
+                maskLRPatches.append(patchMaskLR)
+                maskHRPatches.append(patchMaskHR)
+                coordinatesForTheSet.append((topLeft, btmRight))
+                shiftsPatch.append(shift[i])
+                currNumPatches += 1
+
+            currTrial += 1
+
+        coordinates.append(coordinatesForTheSet)
+
+    # Append to outputDict
+    outputDict['imgPatchesLR'] = np.array(imgLRPatches)
+    outputDict['maskPatchesLR'] = np.array(maskLRPatches)
+    outputDict['imgPatchesHR'] = np.array(imgHRPatches)
+    outputDict['maskPatchesHR'] = np.array(maskHRPatches)
+    outputDict['shifts'] = shiftsPatch
+    outputDict['coordinates'] = coordinates
+
+    return outputDict
 
 
 def sampleCoordinates(imgSize: List[int], patchSize: List[int]):
