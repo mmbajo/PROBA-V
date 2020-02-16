@@ -423,7 +423,7 @@ def upsampleImages(imageSets: Dict, scale: int):
     imageSet: Dict
     '''
     # Iterate for all imageSet
-    for keySet in tqdm(imageSets.keys(), desc='Upscaling LowRes images               '):
+    for keySet in tqdm(imageSets.keys(), desc='[ INFO ] Upscaling LowRes images               '):
         imgArrayDict, imgMaskDict = imageSets[keySet]
 
         if DEBUG:
