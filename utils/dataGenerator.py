@@ -202,7 +202,7 @@ def generatePatchDatasetFromSavedFile(srcFolder: str, dstFolder: str, names: Lis
     totalNumPixInPatch = patchSize * patchSize
 
     # Iterate thru all sets
-    for i in tqdm(range(numSets), desc='[ INFO ] Upscaling LowRes images               '):
+    for i in tqdm(range(numSets), desc='[ INFO ] Finding patches                       '):
         # Extract relevant arrays from the inputDictionary
         currImgSetLR = loadAndRemove(os.path.join(srcFolder, 'imgLRSets{}_{}.npy'.format(isUpsample, names[i])))
         currMaskSetLR = loadAndRemove(os.path.join(srcFolder, 'maskLRSets{}_{}.npy'.format(isUpsample, names[i])))
