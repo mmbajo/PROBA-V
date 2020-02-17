@@ -191,7 +191,7 @@ def generatePatchDatasetFromSavedFile(srcFolder: str, dstFolder: str, names: Lis
     isUpsample = ''
     scale = 3
     if useUpsample:
-        key = 'Upscaled'
+        isUpsample = 'Upscaled'
         scale = 1
 
     # Extract constants
@@ -207,8 +207,8 @@ def generatePatchDatasetFromSavedFile(srcFolder: str, dstFolder: str, names: Lis
         currImgSetLR = loadAndRemove(os.path.join(srcFolder, 'imgLRSets{}_{}.npy'.format(isUpsample, names[i])))
         currMaskSetLR = loadAndRemove(os.path.join(srcFolder, 'maskLRSets{}_{}.npy'.format(isUpsample, names[i])))
 
-        currImgSetHR = loadAndRemove(os.path.join(srcFolder, 'imgHRSets_{}.npy'.format(names[i])))
-        currMaskSetHR = loadAndRemove(os.path.join(srcFolder, 'maskHRSets_{}.npy'.format(names[i])))
+        currImgSetHR = np.load(os.path.join(srcFolder, 'imgHRSets_{}.npy'.format(names[i])))
+        currMaskSetHR = np.load(os.path.join(srcFolder, 'maskHRSets_{}.npy'.format(names[i])))
 
         # Initialize accumulators
         currTrial = 0
@@ -219,7 +219,7 @@ def generatePatchDatasetFromSavedFile(srcFolder: str, dstFolder: str, names: Lis
         coordinates = []
         shiftsPatch = []
 
-        # Trials or SUCCESS
+        # Trials to SUCCESS
         while True:
             # Define stopping condition: MAX_TRIAL is exceeded or thresholdPatchesPerImgSet is satisfied
             if currNumPatches >= thresholdPatchesPerImgSet or currTrial >= MAX_TRIAL:
@@ -306,7 +306,7 @@ def generatePatchDataset(inputDictionary: Dict, useUpsample: bool, patchSize: in
     isUpsample = ''
     scale = inputDictionary['upsampleScale']
     if useUpsample:
-        key = 'Upscaled'
+        isUpsample = 'Upscaled'
         scale = 1
 
     # Initialize accumulators
@@ -322,7 +322,7 @@ def generatePatchDataset(inputDictionary: Dict, useUpsample: bool, patchSize: in
     totalNumPixInPatch = patchSize * patchSize
 
     # Iterate thru all sets
-    for i in tqdm(range(numSets), desc='[ INFO ] Upscaling LowRes images               '):
+    for i in tqdm(range(numSets), desc='[ INFO ] Finding patches                       '):
         # Extract relevant arrays from the inputDictionary
         currImgSetLR = inputDictionary['imgLRSets' + isUpsample][i]
         currMaskSetLR = inputDictionary['maskLRSets' + isUpsample][i]
