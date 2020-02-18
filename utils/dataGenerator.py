@@ -10,8 +10,8 @@ from tqdm import tqdm
 from shutil import move
 from skimage import io
 from skimage.transform import rescale
-from skimage.feature import register_translation
-from scipy.ndimage import fourier_shift
+from skimage.feature import register_translation, masked_register_translation
+from scipy.ndimage import fourier_shift, shift
 
 DEBUG = 0
 # Set the data data directory
@@ -69,6 +69,8 @@ def main(opt):
     output['upsampleScale'] = 3
 
     # Create Patches
+    # Need to device an even efficient way to find patches
+    # This method takes too much time
     output = generatePatchDataset(output, useUpsample=True, patchSize=96,
                                   thresholdPatchesPerImgSet=9, thresholdClarityLR=0.7,
                                   thresholdClarityHR=0.85)
@@ -103,22 +105,22 @@ def saveArrays(inputDictionary: Dict, parentDir: str, band: str):
     for i in tqdm(range(numSets), desc='[ INFO ] Saving numpy arrays                   '):
         np.save(os.path.join(dirToSave,
                              'imgLRSetsUpscaled_{}.npy'.format(inputDictionary['names'][i])),
-                inputDictionary['imgLRSetsUpscaled'][i])
+                inputDictionary['imgLRSetsUpscaled'][i], allow_pickle=True)
         np.save(os.path.join(dirToSave,
                              'imgLRSets_{}.npy'.format(inputDictionary['names'][i])),
-                inputDictionary['imgLRSets'][i])
+                inputDictionary['imgLRSets'][i], allow_pickle=True)
         np.save(os.path.join(dirToSave,
                              'imgHRSets_{}.npy'.format(inputDictionary['names'][i])),
-                inputDictionary['imgHRSets'][i])
+                inputDictionary['imgHRSets'][i], allow_pickle=True)
         np.save(os.path.join(dirToSave,
                              'maskLRSetsUpscaled_{}.npy'.format(inputDictionary['names'][i])),
-                inputDictionary['maskLRSetsUpscaled'][i])
+                inputDictionary['maskLRSetsUpscaled'][i], allow_pickle=True)
         np.save(os.path.join(dirToSave,
                              'maskLRSets_{}.npy'.format(inputDictionary['names'][i])),
-                inputDictionary['maskLRSets'][i])
+                inputDictionary['maskLRSets'][i], allow_pickle=True)
         np.save(os.path.join(dirToSave,
                              'maskHRSets_{}.npy'.format(inputDictionary['names'][i])),
-                inputDictionary['maskHRSets'][i])
+                inputDictionary['maskHRSets'][i], allow_pickle=True)
 
 
 def imageSetToNumpyArrayHelper(imageSetsUpscaled: Dict, imageSets: Dict, isGrayScale: bool, isNHWC: bool):
@@ -225,15 +227,15 @@ def generatePatchDatasetFromSavedFile(srcFolder: str, dstFolder: str, names: Lis
             if currNumPatches >= thresholdPatchesPerImgSet or currTrial >= MAX_TRIAL:
                 if imgLRPatches:
                     np.save(os.path.join(dstFolder, 'imgLRPatches_{}.npy'.format(names[i])),
-                            np.stack(imgLRPatches))
+                            np.stack(imgLRPatches), allow_pickle=True)
                     np.save(os.path.join(dstFolder, 'imgHRPatches_{}.npy'.format(names[i])),
-                            np.stack(imgHRPatches))
+                            np.stack(imgHRPatches), allow_pickle=True)
                     np.save(os.path.join(dstFolder, 'maskLRPatches_{}.npy'.format(names[i])),
-                            np.stack(maskLRPatches))
+                            np.stack(maskLRPatches), allow_pickle=True)
                     np.save(os.path.join(dstFolder, 'maskHRPatches_{}.npy'.format(names[i])),
-                            np.stack(maskHRPatches))
+                            np.stack(maskHRPatches), allow_pickle=True)
                     np.save(os.path.join(dstFolder, 'shifts_{}.npy'.format(names[i])),
-                            np.stack(shiftsPatch))
+                            np.stack(shiftsPatch), allow_pickle=True)
                 break
 
             # Sample topleft and bottomright ccoordinates for a patch
@@ -872,8 +874,9 @@ def correctShiftsFromSavedArrays(folderPath: str, outputDir: str, names: List[st
             currMask = maskSetTrans[j, :, :, :]
 
             # Calculate shift
-            shift, error, diffPhase = register_translation(
-                referenceImage.squeeze(), currImage.squeeze(), upsampleScale)
+            # shift, error, diffPhase = register_translation(
+            #     referenceImage.squeeze(), currImage.squeeze(), upsampleScale)
+            shift = masked_register_translation(currImage, currMask > 0, referenceImage)
             shift = np.asarray(shift)
 
             # Skip those images with 4 shifts and above
@@ -887,13 +890,11 @@ def correctShiftsFromSavedArrays(folderPath: str, outputDir: str, names: List[st
             x, y, z = currImage.shape
 
             # Correct image in the frequency domain
-            correctedImageInFreqDomain = fourier_shift(np.fft.fftn(currImage.squeeze()), shift)
-            correctedImage = np.fft.ifftn(correctedImageInFreqDomain)
+            correctedImage = shift(currImage, shift, mode='reflect')
             correctedImage = correctedImage.reshape((x, y, z))
 
             # Correct image in the frequency domain
-            correctedMaskInFreqDomain = fourier_shift(np.fft.fftn(currMask.squeeze()), shift)
-            correctedMask = np.fft.ifftn(correctedMaskInFreqDomain)
+            correctedMask = shift(currMask, shift, mode='constant', cval=0)
             correctedMask = correctedMask.reshape((x, y, z))
 
             # Stack to the reference iamge
@@ -913,17 +914,21 @@ def correctShiftsFromSavedArrays(folderPath: str, outputDir: str, names: List[st
 
         # shift to another big array of shifts goddammit
         np.save(os.path.join(outputDir,
-                             'shifts_{}.npy'.format(names[i])), np.array(setShift))
+                             'shifts_{}.npy'.format(names[i])), np.array(setShift), allow_pickle=True)
 
         # Save each sets
         np.save(os.path.join(outputDir,
-                             'imgLRSetsUpscaled_{}.npy'.format(names[i])), np.stack(trimmedImageSetTrans))
+                             'imgLRSetsUpscaled_{}.npy'.format(names[i])), np.stack(trimmedImageSetTrans),
+                allow_pickle=True)
         np.save(os.path.join(outputDir,
-                             'maskLRSetsUpscaled_{}.npy'.format(names[i])), np.stack(trimmedMaskSetTrans))
+                             'maskLRSetsUpscaled_{}.npy'.format(names[i])), np.stack(trimmedMaskSetTrans),
+                allow_pickle=True)
         np.save(os.path.join(outputDir,
-                             'imgLRSets_{}.npy'.format(names[i])), np.stack(trimmedImageSetOrig))
+                             'imgLRSets_{}.npy'.format(names[i])), np.stack(trimmedImageSetOrig),
+                allow_pickle=True)
         np.save(os.path.join(outputDir,
-                             'maskLRSets_{}.npy'.format(names[i])), np.stack(trimmedMaskSetOrig))
+                             'maskLRSets_{}.npy'.format(names[i])), np.stack(trimmedMaskSetOrig),
+                allow_pickle=True)
         # Copy HR arrays
         move(os.path.join(folderPath, 'imgHRSets_{}.npy'.format(names[i])),
              os.path.join(outputDir,
