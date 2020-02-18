@@ -257,6 +257,8 @@ def generatePatchDatasetFromSavedFile(srcFolder: str, dstFolder: str, names: Lis
             isSampleClearHR = clearPercentageArrayHR > thresholdClarityHR
             isSampleGoodHR = np.sum(isSampleClearHR)
 
+            print(isSampleClearLR, isSampleClearHR)
+
             if isSampleGoodLR and isSampleGoodHR:
                 imgLRPatches.append(patchImgLR)
                 imgHRPatches.append(patchImgHR)
