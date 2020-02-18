@@ -6,6 +6,7 @@ import glob
 import numpy as np
 import pandas as pd
 import random
+import torch
 from tqdm import tqdm
 from shutil import move
 from skimage import io
@@ -247,8 +248,8 @@ def generatePatchDatasetFromSavedFile(srcFolder: str, dstFolder: str, names: Lis
             patchImgLR = currImgSetLR[:, :, yZero: yOne, xZero: xOne]  # [numSamples, channels, height, width]
             patchImgHR = currImgSetHR[:, :, yZero*scale: yOne*scale, xZero*scale: xOne*scale]
 
-            patchMaskLR = currMaskSetLR[:, :, yZero: yOne, xZero: xOne]  # [numSamples, channels, height, width]
-            patchMaskHR = currMaskSetHR[:, :, yZero*scale: yOne*scale, xZero*scale: xOne*scale]
+            patchMaskLR = currMaskSetLR[:, :, yZero: yOne, xZero: xOne] > 0  # [numSamples, channels, height, width]
+            patchMaskHR = currMaskSetHR[:, :, yZero*scale: yOne*scale, xZero*scale: xOne*scale] > 0
 
             # Check clarity of the low resulution patches
             clearPercentageArrayLR = np.sum(patchMaskLR, axis=(1, 2, 3)) / totalNumPixInPatch
@@ -258,8 +259,6 @@ def generatePatchDatasetFromSavedFile(srcFolder: str, dstFolder: str, names: Lis
             clearPercentageArrayHR = np.sum(patchMaskHR, axis=(1, 2, 3)) / totalNumPixInPatch
             isSampleClearHR = clearPercentageArrayHR > thresholdClarityHR
             isSampleGoodHR = np.sum(isSampleClearHR)
-
-            print(isSampleClearLR, isSampleClearHR)
 
             if isSampleGoodLR and isSampleGoodHR:
                 imgLRPatches.append(patchImgLR)
@@ -278,7 +277,7 @@ def generatePatchDatasetFromSavedFile(srcFolder: str, dstFolder: str, names: Lis
 
 
 def loadAndRemove(filePath):
-    loadedFile = np.load(filePath)
+    loadedFile = np.load(filePath, allow_pickle=True)
     os.remove(filePath)
     return loadedFile
 
@@ -427,6 +426,7 @@ def generateDataDir(isTrainData: bool, NIR: bool):
     dataType = 'train' if isTrainData else 'test'
     imageDir = os.path.join(DATA_BANK_DIRECTORY, dataType, band)
     dirList = sorted([os.path.basename(x) for x in glob.glob(imageDir + '/imgset*')])
+    #dirList = dirList[:25]
     return dirList
 
 
@@ -870,38 +870,46 @@ def correctShiftsFromSavedArrays(folderPath: str, outputDir: str, names: List[st
         # and adjust the shift wrt the reference image
         for j in range(1, numLRImgs):
             # Initialize current images and mask
-            currImage = imgSetTrans[j, :, :, :]
-            currMask = maskSetTrans[j, :, :, :]
+            currImageUp = imgSetTrans[j, :, :, :]
+            currMaskUp = maskSetTrans[j, :, :, :]
+            currImage = imgSetOrig[j, :, :, :]
+            currMask = maskSetOrig[j, :, :, :]
 
             # Calculate shift
             # shift, error, diffPhase = register_translation(
             #     referenceImage.squeeze(), currImage.squeeze(), upsampleScale)
-            shift = masked_register_translation(currImage, currMask > 0, referenceImage)
-            shift = np.asarray(shift)
+            shiftValueUp = masked_register_translation(currImageUp, currMaskUp > 0, referenceImage)
+            shiftValue = masked_register_translation(currImage, currMask > 0, origImage)
 
             # Skip those images with 4 shifts and above
-            if (np.abs(shift) > 4).any():
-                continue
+            # if (np.abs(shiftValue) > 4).any():
+            #     continue
 
             # Accumulate good shifts
-            setShift.append(shift)
+            setShift.append(shiftValue)
 
             # Get shapes -> format may be CWH or WHC
-            x, y, z = currImage.shape
+            xOne, yOne, zOne = currImage.shape
+            xTwo, yTwo, zTwo = currImageUp.shape
 
-            # Correct image in the frequency domain
-            correctedImage = shift(currImage, shift, mode='reflect')
-            correctedImage = correctedImage.reshape((x, y, z))
+            # Correct images and masks
+            correctedImage = shift(currImage, shiftValue, mode='reflect')
+            correctedImage = correctedImage.reshape((xOne, yOne, zOne))
 
-            # Correct image in the frequency domain
-            correctedMask = shift(currMask, shift, mode='constant', cval=0)
-            correctedMask = correctedMask.reshape((x, y, z))
+            correctedImageUp = shift(currImageUp, shiftValueUp, mode='reflect')
+            correctedImageUp = correctedImageUp.reshape((xTwo, yTwo, zTwo))
+
+            correctedMask = shift(currMask, shiftValue, mode='constant', cval=0)
+            correctedMask = correctedMask.reshape((xOne, yOne, zOne))
+
+            correctedMaskUp = shift(currMaskUp, shiftValueUp, mode='constant', cval=0)
+            correctedMaskUp = correctedMaskUp.reshape((xTwo, yTwo, zTwo))
 
             # Stack to the reference iamge
-            trimmedImageSetTrans.append(np.array([correctedImage]))
-            trimmedMaskSetTrans.append(np.array([correctedMask]))
-            trimmedImageSetOrig.append(np.array([imgSetOrig[j, :, :, :]]))
-            trimmedMaskSetOrig.append(np.array([maskSetOrig[j, :, :, :]]))
+            trimmedImageSetTrans.append(np.array([correctedImageUp]))
+            trimmedMaskSetTrans.append(np.array([correctedMaskUp]))
+            trimmedImageSetOrig.append(np.array([correctedImage]))
+            trimmedMaskSetOrig.append(np.array([correctedMask]))
             counter += 1
 
         # Remove imagesets with LR images less than 9
