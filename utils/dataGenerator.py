@@ -90,7 +90,7 @@ def generatePatchesFromTorch(images: np.ndarray, mask: np.ndarray, patchSize: in
     pass
 
 
-def loadAndSaveRawData(rawDataDir: str, arrayDir: str, band: str, isGrayScale=True):
+def loadAndSaveRawData(rawDataDir: str, arrayDir: str, band: str, isGrayScale=True, isTrainData=True):
     '''
     This function loads every imageset and dumps it into one giant array.
     We do this because of memory constraints...
@@ -111,6 +111,9 @@ def loadAndSaveRawData(rawDataDir: str, arrayDir: str, band: str, isGrayScale=Tr
     if not os.path.exists(arrayDir):
         os.makedirs(arrayDir)
 
+    # Is train data?
+    key = 'TRAIN' if isTrainData else 'TEST'
+
     # Get directories (OS agnostic)
     trainDir = os.path.join(rawDataDir, 'train', band)
     dirList = sorted(glob.glob(os.path.join(trainDir, 'imgset*')))
@@ -123,17 +126,7 @@ def loadAndSaveRawData(rawDataDir: str, arrayDir: str, band: str, isGrayScale=Tr
                        for fName in sorted(glob.glob(os.path.join(dirName, 'LR*.png')))]
                       for dirName in tqdm(dirList, desc=descForImgLR)])
 
-    imgLR.dump(os.path.join(arrayDir, f'imgLR_{band}.npy'))
-
-    # Load all high resolution images in a massive array and dump!
-    # The resulting numpy array has dimensions [numImgSet, 1, channel, height, width]
-    descForImgHR = '[ INFO ] Loading HR images and dumping '
-    imgHR = np.array([io.imread(os.path.join(dirName, 'HR.png')).transpose((2, 0, 1)) if not isGrayScale
-                      else np.expand_dims(io.imread(os.path.join(dirName, 'HR.png')), axis=0)
-                      for dirName in tqdm(dirList, desc=descForImgHR)])
-    # For count of HR pics which is 1.
-    imgHR = np.expand_dims(imgHR, axis=1)
-    imgHR.dump(os.path.join(arrayDir, f'imgHR_{band}.npy'))
+    imgLR.dump(os.path.join(arrayDir, f'{key}imgLR_{band}.npy'))
 
     # Load all low resolution masks in a massive array and dump!
     # The resulting numpy array has dimensions [numImgSet, numLowResMaskPerImgSet, channel, height, width]
@@ -143,17 +136,28 @@ def loadAndSaveRawData(rawDataDir: str, arrayDir: str, band: str, isGrayScale=Tr
                        for fName in sorted(glob.glob(os.path.join(dirName, 'QM*.png')))]
                       for dirName in tqdm(dirList, desc=descForMaskLR)])
 
-    mskLR.dump(os.path.join(arrayDir, f'mskLR_{band}.npy'))
+    mskLR.dump(os.path.join(arrayDir, f'{key}mskLR_{band}.npy'))
 
-    # Load all high resolution images in a massive array and dump!
-    # The resulting numpy array has dimensions [numImgSet, 1, channel, height, width]
-    descForMaskHR = '[ INFO ] Loading HR masks and dumping  '
-    mskHR = np.array([io.imread(os.path.join(dirName, 'SM.png')).transpose((2, 0, 1)) if not isGrayScale
-                      else np.expand_dims(io.imread(os.path.join(dirName, 'SM.png')), axis=0)
-                      for dirName in tqdm(dirList, desc=descForMaskHR)])
-    # For count of HR pics which is 1.
-    mskHR = np.expand_dims(mskHR, axis=1)
-    mskHR.dump(os.path.join(arrayDir, f'mskHR_{band}.npy'))
+    if isTrainData:
+        # Load all high resolution images in a massive array and dump!
+        # The resulting numpy array has dimensions [numImgSet, 1, channel, height, width]
+        descForImgHR = '[ INFO ] Loading HR images and dumping '
+        imgHR = np.array([io.imread(os.path.join(dirName, 'HR.png')).transpose((2, 0, 1)) if not isGrayScale
+                          else np.expand_dims(io.imread(os.path.join(dirName, 'HR.png')), axis=0)
+                          for dirName in tqdm(dirList, desc=descForImgHR)])
+        # For count of HR pics which is 1.
+        imgHR = np.expand_dims(imgHR, axis=1)
+        imgHR.dump(os.path.join(arrayDir, f'{key}imgHR_{band}.npy'))
+
+        # Load all high resolution images in a massive array and dump!
+        # The resulting numpy array has dimensions [numImgSet, 1, channel, height, width]
+        descForMaskHR = '[ INFO ] Loading HR masks and dumping  '
+        mskHR = np.array([io.imread(os.path.join(dirName, 'SM.png')).transpose((2, 0, 1)) if not isGrayScale
+                          else np.expand_dims(io.imread(os.path.join(dirName, 'SM.png')), axis=0)
+                          for dirName in tqdm(dirList, desc=descForMaskHR)])
+        # For count of HR pics which is 1.
+        mskHR = np.expand_dims(mskHR, axis=1)
+        mskHR.dump(os.path.join(arrayDir, f'{key}mskHR_{band}.npy'))
 
 
 def registerImages(allImgLR: np.ndarray, allMskLR: np.ndarray) -> np.ma.ndarray:
@@ -265,12 +269,47 @@ def isImageSetNotCorrupted(imgSet: np.ma.ndarray, clarityThreshold: float) -> bo
     clarityThreshold: float
 
     Output:
-    boolean
+    boolean that answers the question is ImageSet not Corrupted?
     '''
     totalPixels = imgSet.shape[2] * imgSet.shape[3]  # width * height
     isImageClearEnough = np.array([np.count_nonzero(img.mask)/totalPixels > clarityThreshold
                                    for img in imgSet])
     return np.sum(isImageClearEnough) != len(imgSet)
+
+
+def pickClearLRImgsPerImgSet(imgMskLR: np.ma.ndarray, numImgToPick: int, clarityThreshold: float) -> np.ma.ndarray:
+    '''
+    Pick clearest frames per ImgSet.
+    Before picking, we remove all frames that don't satisfy the clarity threshold.
+    After removing the said frames, in the event that the remaining LR frames is less than
+    the number of img to pick, we randomly pick among the clear frames to satisfy number of frames.
+    (This might be a form of regularization...)
+
+    Input:
+    imgMskLR: np.ma.ndarray[newNumImgSet, numImgPerImgSet, channel, height, width]
+    numImgToPick: int
+
+    Output:
+    trimmedImgMskLR: np.ma.ndarray[newNumImgSet, numImgToPick, channel, height, width]
+                        where numImgToPick <= numImgPerImgSet
+    '''
+    return np.ma.array([pickClearImg(filterImgMskSet(imgMsk, clarityThreshold), numImgToPick=numImgToPick)
+                        for imgMsk in imgMskLR])
+
+
+def pickClearImg(imgMsk: np.ma.ndarray, clarityThreshold: float) -> np.ma.ndarray:
+    '''
+    Pick clearest low resolution images!
+
+    Input:
+    imgMsk: np.ma.ndarray[numImgPerImgSet, channel, height, width]
+    clarityThreshold: float
+
+    Ouput:
+    trimmedImgMsk: np.ma.ndarray[newNumImgPerImgSet, channel, height, width]
+                    where newNumImgPerImgSet <= numImgPerImgSet
+    '''
+    pass
 
 
 def saveArrays(inputDictionary: Dict, parentDir: str, band: str):
