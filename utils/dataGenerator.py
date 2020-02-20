@@ -83,11 +83,229 @@ def main(opt):
     # Save to file for training
 
 
-def generatePatchesFromTorch(images: np.ndarray, mask: np.ndarray, patchSize: int, stride: int):
+def generatePatches(imgSets: np.ma.masked_array, patchSize: int, stride: int) -> np.ma.masked_array:
     '''
-    Generate patches of images.
+    Input:
+    images: np.ma.masked_array[numImgSet, numImgPerImgSet, channels, height, width]
+    patchSize: int
+    stride: int
+
+    Output:
+    np.ma.masked_array[numImgSet, numImgPerImgSet * numPatches, channels, patchSize, patchSize]
     '''
-    pass
+    return np.array([generatePatchesPerImgSet(imgSet, patchSize, stride) for imgSet in imgSets])
+
+
+def generatePatchesPerImgSet(images: np.ma.masked_array, patchSize: int, stride: int) -> np.ma.masked_array:
+    '''
+    Generate patches of images systematically.
+
+    Input:
+    images: np.ma.masked_array[numImgPerImgSet, channels, height, width]
+    patchSize: int
+    stride: int
+
+    Output:
+    np.ma.masked_array[numImgPerImgSet * numPatches, channels, patchSize, patchSize]
+    '''
+    tensorImg = torch.tensor(images)
+    tensorMsk = torch.tensor(images.msk)
+
+    _, channels, height, width = images.shape
+
+    patchesImg = tensorImg.unfold(2, patchSize, stride).unfold(3, patchSize, stride)
+    patchesImg = patchesImg.reshape(-1, channels, height, width)  # [numImgPerImgSet * numPatches, C, H, W]
+    patchesImg = patchesImg.numpy()
+
+    patchesMsk = tensorMsk.unfold(2, patchSize, stride).unfold(3, patchSize, stride)
+    patchesMsk = tensorMsk.reshape(-1, channels, height, width)
+    patchesMsk = patchesMsk.numpy()
+
+    return np.ma.masked_array(patchesImg, mask=patchesMsk)
+
+
+def registerImages(allImgLR: np.ndarray, allMskLR: np.ndarray) -> np.ma.masked_array:
+    '''
+    For each imgset, align all its imgs into one coordinate system.
+    The reference image will be the clearest one. (ie the one withe highest QM accumalitive sum)
+
+    Input:
+    allImgLR: np.ndarray[numImgSet, numImgPerImgSet, channel, height, width]
+    allMskLR: np.ndarray[numImgSet, numMskPerImgSet, channel, height, width]
+
+    Output:
+    output: np.ma.masked_array with the same dimension
+    '''
+    return np.array([registerImagesInSet(allImgLR[i], allMskLR[i]) for i in range(allImgLR.shape[0])])
+
+
+def registerImagesInSet(imgLR: np.ndarray, mskLR: np.ndarray) -> np.ma.masked_array:
+    '''
+    Takes in an imgset LR masks and images.
+    Sorts it and picks a reference, then register.
+
+    Input:
+    imgLR: np.ndarray[numImgPerImgSet, channel, height, width]
+    mskLR: np.ndarray[numMskPerImgSet, channel, height, width]
+
+    Output
+    regImgMskLR: np.ma.masked_array[numMskPerImgSet, channel, height, width]
+                    This array has a property mask where in if used, returns a boolean array
+                    with the same dimension as the data.
+    https://docs.scipy.org/doc/numpy-1.15.0/reference/maskedarray.baseclass.html#numpy.ma.MaskedArray.data
+    '''
+    referImg = imgLR[np.argmax([np.count_nonzero(msk) for msk in mskLR])]
+    for i, (img, msk) in enumerate(zip(imgLR, mskLR)):
+        regImg, regMsk = registerFrame(img, msk.astype(bool), referImg)
+        mskdArray = np.ma.masked_array(regImg, mask=regMsk)
+        if i == 0:
+            regImgMskLR = mskdArray
+        else:
+            regImgMskLR = np.ma.concatenate((regImgMskLR, mskdArray))
+    return regImgMskLR
+
+
+def registerFrame(img: np.ndarray, msk: np.ndarray, referenceImg: np.ndarray) -> Tuple(np.ndarray, np.ndarray):
+    '''
+    Input:
+    img: np.ndarray[channel, height, width]
+    msk: np.ndarray[channel, height, width]
+    referenceImg: np.ndarray[channel, height, width]
+
+    Output:
+    Tuple(regImg, regMsk)
+    regImg: np.ndarray[channel, height, width]
+    regMsk: np.ndarray[channel, height, width]
+    '''
+    shiftArray = masked_register_translation(referenceImg, img, msk)
+    regImg = shift(img, shiftArray, mode='reflect')
+    regMsk = shift(msk, shiftArray, mode='constant', cval=0)
+    return (regImg, regMsk)
+
+
+def convertToMaskedArray(imgSets: np.ndarray, mskSets: np.ndarray) -> np.ma.masked_array:
+    '''
+    Convert Image and Mask array pair to a masked array.
+    Especially made for HR images.
+
+    Input:
+    imgSets: np.ndarray[numImgSet, numImgPerImgSet, channel, height, width]
+    mskSets: np.ndarray[numImgSet, numImgPerImgSet, channel, height, width]
+
+    Output:
+    imgMskSets: np.ma.masked_array[numImgSet, numImgPerImgSet, channel, height, width]
+    '''
+    imgSets = np.squeeze(imgSets, axis=1)  # [numImgSet, channel, height, width]
+    mskSets = np.squeeze(mskSets, axis=1)  # [numImgSet, channel, height, width]
+    imgMskSets = np.array([np.ma.masked_array(img, mask=msk)
+                           for img, msk in zip(imgSets, mskSets)])  # [numImgSet, channel, height, width]
+    imgMskSets = np.expand_dims(imgMskSets, axis=1)  # [numImgSet, 1, channel, height, width]
+    return imgMskSets
+
+
+def removeCorruptedImageSets(imgMskLR: np.ma.masked_array, imgMskHR: np.ma.masked_array,
+                             clarityThreshold: float) -> Tuple(np.ma.masked_array, np.ma.masked_array):
+    '''
+    Remove imageset if ALL its LR frames is less than the given clarity threshold.
+
+    Input:
+    imgMskLR: np.ma.masked_array[numImgSet, numImgPerImgSet, channel, height, width]
+    clarityThreshold: float
+
+    Output:
+    trimmedImgMskLR: np.ma.masked_array[newNumImgSet, numImgPerImgSet, channel, height, width]
+    trimmedImgMskHR: np.ma.masked_array[newNumImgSet,               1, channel, height, width]
+                    where newNumImgSet <= numImgSet
+    '''
+    booleanMask = np.array([isImageSetNotCorrupted(imgSet, clarityThreshold) for imgSet in imgMskLR])
+    trimmedImgMskLR = imgMskLR[booleanMask]
+    trimmedImgMskHR = imgMskHR[booleanMask]
+    return (trimmedImgMskLR, trimmedImgMskHR)
+
+
+def isImageSetNotCorrupted(imgSet: np.ma.masked_array, clarityThreshold: float) -> bool:
+    '''
+    Determine if all the LR images are not clear enough.
+    Return False if ALL LR image clarity is below threshold.
+
+    Input:
+    imgSet: np.ma.masked_array[numImgPerImgSet, channel, height, width]
+    clarityThreshold: float
+
+    Output:
+    boolean that answers the question is ImageSet not Corrupted?
+    '''
+    totalPixels = imgSet.shape[2] * imgSet.shape[3]  # width * height
+    isImageClearEnough = np.array([np.count_nonzero(img.mask)/totalPixels > clarityThreshold
+                                   for img in imgSet])
+    return np.sum(isImageClearEnough) != len(imgSet)
+
+
+def pickClearLRImgsPerImgSet(imgMskLR: np.ma.masked_array,
+                             numImgToPick: int, clarityThreshold: float) -> np.ma.masked_array:
+    '''
+    Pick clearest frames per ImgSet.
+    Before picking, we remove all frames that don't satisfy the clarity threshold.
+    After removing the said frames, in the event that the remaining LR frames is less than
+    the number of img to pick, we randomly pick among the clear frames to satisfy number of frames.
+    (This might be a form of regularization...)
+
+    Input:
+    imgMskLR: np.ma.masked_array[newNumImgSet, numImgPerImgSet, channel, height, width]
+    numImgToPick: int
+
+    Output:
+    trimmedImgMskLR: np.ma.masked_array[newNumImgSet, numImgToPick, channel, height, width]
+                        where numImgToPick <= numImgPerImgSet
+    '''
+    return np.ma.array([pickClearImg(filterImgMskSet(imgMsk, clarityThreshold), numImgToPick=numImgToPick)
+                        for imgMsk in imgMskLR])
+
+
+def pickClearImg(imgMsk: np.ma.masked_array, numImgToPick: int) -> np.ma.masked_array:
+    '''
+    Pick clearest low resolution images!
+
+    Input:
+    imgMsk: np.ma.masked_array[numImgPerImgSet, channel, height, width]
+    numImgToPick: int
+
+    Ouput:
+    trimmedImgMsk: np.ma.masked_array[newNumImgPerImgSet, channel, height, width]
+                    where newNumImgPerImgSet <= numImgPerImgSet might not hold.
+    '''
+    sortedIndices = np.argsort(-(np.sum(imgMsk.mask, axis=(1, 2, 3))))
+    sortedImgMskArray = imgMsk[sortedIndices]
+    if numImgToPick < len(imgMsk):
+        trimmedImgMsk = sortedImgMskArray[:numImgToPick]
+    else:
+        trimmedImgMsk = np.copy(sortedImgMskArray)
+        while len(trimmedImgMsk) < numImgToPick:
+            shuffledIndices = np.random.shuffle(sortedIndices)
+            toAppend = imgMsk[shuffledIndices]
+            trimmedImgMsk = np.ma.concatenate((trimmedImgMsk, toAppend))
+        trimmedImgMsk = trimmedImgMsk[:numImgToPick]
+    return trimmedImgMsk
+
+
+def filterImgMskSet(imgSet: np.ma.masked_array, clarityThreshold: float) -> np.ma.masked_array:
+    '''
+    This function is the same as isImageSetNotCorrupted.
+    except that the out put is a masked version of its array input.
+
+    Input:
+    imgSet: np.ma.masked_array[numImgPerImgSet, channel, height, width]
+    clarityThreshold: float
+
+    Output:
+    filteredImgSet: np.ma.masked_array[newNumImgPerImgSet, channel, height, width]
+                        where newNumImgPerImgSet <= numImgPerImgSet
+    '''
+    totalPixels = imgSet.shape[2] * imgSet.shape[3]  # width * height
+    isImageClearEnough = np.array([np.count_nonzero(img.mask)/totalPixels > clarityThreshold
+                                   for img in imgSet])  # boolean mask
+    filteredImgSet = imgSet[isImageClearEnough]
+    return filteredImgSet
 
 
 def loadAndSaveRawData(rawDataDir: str, arrayDir: str, band: str, isGrayScale=True, isTrainData=True):
@@ -158,158 +376,6 @@ def loadAndSaveRawData(rawDataDir: str, arrayDir: str, band: str, isGrayScale=Tr
         # For count of HR pics which is 1.
         mskHR = np.expand_dims(mskHR, axis=1)
         mskHR.dump(os.path.join(arrayDir, f'{key}mskHR_{band}.npy'))
-
-
-def registerImages(allImgLR: np.ndarray, allMskLR: np.ndarray) -> np.ma.ndarray:
-    '''
-    For each imgset, align all its imgs into one coordinate system.
-    The reference image will be the clearest one. (ie the one withe highest QM accumalitive sum)
-
-    Input:
-    allImgLR: np.ndarray[numImgSet, numImgPerImgSet, channel, height, width]
-    allMskLR: np.ndarray[numImgSet, numMskPerImgSet, channel, height, width]
-
-    Output:
-    output: np.ma.ndarray with the same dimension
-    '''
-    return np.array([registerImagesInSet(allImgLR[i], allMskLR[i]) for i in range(allImgLR.shape[0])])
-
-
-def registerImagesInSet(imgLR: np.ndarray, mskLR: np.ndarray) -> np.ma.masked_array:
-    '''
-    Takes in an imgset LR masks and images.
-    Sorts it and picks a reference, then register.
-
-    Input:
-    imgLR: np.ndarray[numImgPerImgSet, channel, height, width]
-    mskLR: np.ndarray[numMskPerImgSet, channel, height, width]
-
-    Output
-    regImgMskLR: np.ma.masked_array[numMskPerImgSet, channel, height, width]
-                    This array has a property mask where in if used, returns a boolean array
-                    with the same dimension as the data.
-    https://docs.scipy.org/doc/numpy-1.15.0/reference/maskedarray.baseclass.html#numpy.ma.MaskedArray.data
-    '''
-    referImg = imgLR[np.argmax([np.count_nonzero(msk) for msk in mskLR])]
-    for i, (img, msk) in enumerate(zip(imgLR, mskLR)):
-        regImg, regMsk = registerFrame(img, msk.astype(bool), referImg)
-        mskdArray = np.ma.masked_array(regImg, mask=regMsk)
-        if i == 0:
-            regImgMskLR = mskdArray
-        else:
-            regImgMskLR = np.ma.concatenate((regImgMskLR, mskdArray))
-    return regImgMskLR
-
-
-def registerFrame(img: np.ndarray, msk: np.ndarray, referenceImg: np.ndarray) -> Tuple(np.ndarray, np.ndarray):
-    '''
-    Input:
-    img: np.ndarray[channel, height, width]
-    msk: np.ndarray[channel, height, width]
-    referenceImg: np.ndarray[channel, height, width]
-
-    Output:
-    Tuple(regImg, regMsk)
-    regImg: np.ndarray[channel, height, width]
-    regMsk: np.ndarray[channel, height, width]
-    '''
-    shiftArray = masked_register_translation(referenceImg, img, msk)
-    regImg = shift(img, shiftArray, mode='reflect')
-    regMsk = shift(msk, shiftArray, mode='constant', cval=0)
-    return (regImg, regMsk)
-
-
-def convertToMaskedArray(imgSets: np.ndarray, mskSets: np.ndarray) -> np.ma.ndarray:
-    '''
-    Convert Image and Mask array pair to a masked array.
-    Especially made for HR images.
-
-    Input:
-    imgSets: np.ndarray[numImgSet, numImgPerImgSet, channel, height, width]
-    mskSets: np.ndarray[numImgSet, numImgPerImgSet, channel, height, width]
-
-    Output:
-    imgMskSets: np.ma.ndarray[numImgSet, numImgPerImgSet, channel, height, width]
-    '''
-    imgSets = np.squeeze(imgSets, axis=1)  # [numImgSet, channel, height, width]
-    mskSets = np.squeeze(mskSets, axis=1)  # [numImgSet, channel, height, width]
-    imgMskSets = np.array([np.ma.masked_array(img, mask=msk)
-                           for img, msk in zip(imgSets, mskSets)])  # [numImgSet, channel, height, width]
-    imgMskSets = np.expand_dims(imgMskSets, axis=1)  # [numImgSet, 1, channel, height, width]
-    return imgMskSets
-
-
-def removeCorruptedImageSets(imgMskLR: np.ma.ndarray, imgMskHR: np.ma.ndarray,
-                             clarityThreshold: float) -> Tuple(np.ma.ndarray, np.ma.ndarray):
-    '''
-    Remove imageset if ALL its LR frames is less than the given clarity threshold.
-
-    Input:
-    imgMskLR: np.ma.ndarray[numImgSet, numImgPerImgSet, channel, height, width]
-    clarityThreshold: float
-
-    Output:
-    trimmedImgMskLR: np.ma.ndarray[newNumImgSet, numImgPerImgSet, channel, height, width]
-    trimmedImgMskHR: np.ma.ndarray[newNumImgSet,               1, channel, height, width]
-                    where newNumImgSet <= numImgSet
-    '''
-    booleanMask = np.array([isImageSetNotCorrupted(imgSet, clarityThreshold) for imgSet in imgMskLR])
-    trimmedImgMskLR = imgMskLR[booleanMask]
-    trimmedImgMskHR = imgMskHR[booleanMask]
-    return (trimmedImgMskLR, trimmedImgMskHR)
-
-
-def isImageSetNotCorrupted(imgSet: np.ma.ndarray, clarityThreshold: float) -> bool:
-    '''
-    Determine if all the LR images are not clear enough.
-    Return False if ALL LR image clarity is below threshold.
-
-    Input:
-    imgSet: np.ma.ndarray[numImgPerImgSet, channel, height, width]
-    clarityThreshold: float
-
-    Output:
-    boolean that answers the question is ImageSet not Corrupted?
-    '''
-    totalPixels = imgSet.shape[2] * imgSet.shape[3]  # width * height
-    isImageClearEnough = np.array([np.count_nonzero(img.mask)/totalPixels > clarityThreshold
-                                   for img in imgSet])
-    return np.sum(isImageClearEnough) != len(imgSet)
-
-
-def pickClearLRImgsPerImgSet(imgMskLR: np.ma.ndarray, numImgToPick: int, clarityThreshold: float) -> np.ma.ndarray:
-    '''
-    Pick clearest frames per ImgSet.
-    Before picking, we remove all frames that don't satisfy the clarity threshold.
-    After removing the said frames, in the event that the remaining LR frames is less than
-    the number of img to pick, we randomly pick among the clear frames to satisfy number of frames.
-    (This might be a form of regularization...)
-
-    Input:
-    imgMskLR: np.ma.ndarray[newNumImgSet, numImgPerImgSet, channel, height, width]
-    numImgToPick: int
-
-    Output:
-    trimmedImgMskLR: np.ma.ndarray[newNumImgSet, numImgToPick, channel, height, width]
-                        where numImgToPick <= numImgPerImgSet
-    '''
-    return np.ma.array([pickClearImg(filterImgMskSet(imgMsk, clarityThreshold), numImgToPick=numImgToPick)
-                        for imgMsk in imgMskLR])
-
-
-def pickClearImg(imgMsk: np.ma.ndarray, clarityThreshold: float) -> np.ma.ndarray:
-    '''
-    Pick clearest low resolution images!
-
-    Input:
-    imgMsk: np.ma.ndarray[numImgPerImgSet, channel, height, width]
-    clarityThreshold: float
-
-    Ouput:
-    trimmedImgMsk: np.ma.ndarray[newNumImgPerImgSet, channel, height, width]
-                    where newNumImgPerImgSet <= numImgPerImgSet
-    '''
-    pass
 
 
 def saveArrays(inputDictionary: Dict, parentDir: str, band: str):
