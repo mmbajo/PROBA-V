@@ -1,19 +1,22 @@
 from typing import List, Tuple, Dict
 import argparse
-import logging
 
-import os
-import glob
-import numpy as np
-import pandas as pd
-import random
-import torch
-from tqdm import tqdm
-from shutil import move
-from skimage import io
-from skimage.transform import rescale
-from skimage.feature import register_translation, masked_register_translation
 from scipy.ndimage import fourier_shift, shift
+from skimage.feature import register_translation, masked_register_translation
+from skimage.transform import rescale
+from skimage import io
+from shutil import move
+from tqdm import tqdm
+import torch
+import random
+import pandas as pd
+import numpy as np
+import glob
+import os
+
+import logging
+logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
+
 
 DEBUG = 0
 # Set the data data directory
@@ -26,61 +29,110 @@ def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--band', default='NIR', type=str)
     parser.add_argument('--dir', type=str, default=DATA_BANK_DIRECTORY)
+    parser.add_argument('--chkptdir', default='/home/mark/DataBank/PROBA-V-CHKPT', type=str)
     parser.add_argument('--split', type=float, default=0.7)
+    parser.add_argument('--numTopClearest', type=int, default=9)
+    parser.add_argument('--patchSizeLR', type=int, default=32)
+    parser.add_argument('--patchStrideLR', type=int, default=2)
+    parser.add_argument('--ckpt', type=int, nargs='+opt.numTopClearest', default=[1, 2, 3, 4])
     opt = parser.parse_args()
     return opt
 
 
-def main(opt):
-    # Parse inputs
-    NIR = True if opt.band == 'NIR' else False
+def main():
+    rawDataDir = opt.dir
+    cleanDataDir = opt.chkptdir
+    band = opt.band
+    arrayDir = os.path.join(cleanDataDir, 'arrayDir')
+    trimmedArrayDir = os.path.join(cleanDataDir, 'trimmedArrayDir')
+    patchesDir = os.path.join(cleanDataDir, 'patchesDir')
 
-    # Load dataset
-    imgAllSets = generateImageSet(isTrainData=True, NIR=NIR)
+    # Check validity of directories
+    if not os.path.exists(arrayDir):
+        os.makedirs(arrayDir)
+    if not os.path.exists(trimmedArrayDir):
+        os.makedirs(trimmedArrayDir)
+    if not os.path.exists(patchesDir):
+        os.makedirs(patchesDir)
 
-    # Remove outliers
-    imgAllSets = removeImageWithOutlierPixels(imageSet=imgAllSets, threshold=60000, isTrainData=True)
+    # CHECKPOINT 1 - RAW DATA LOAD AND SAVE
+    if 1 in opt.ckpt:
+        # Train
+        logging.info('Loading and dumping raw data...')
+        loadAndSaveRawData(rawDataDir, arrayDir, 'NIR', isGrayScale=True, isTrainData=True)
+        loadAndSaveRawData(rawDataDir, arrayDir, 'RED', isGrayScale=True, isTrainData=True)
+        # Test
+        loadAndSaveRawData(rawDataDir, arrayDir, 'NIR', isGrayScale=True, isTrainData=False)
+        loadAndSaveRawData(rawDataDir, arrayDir, 'RED', isGrayScale=True, isTrainData=False)
 
-    # Upscale
-    imgAllSetsUpScaled = upsampleImages(imageSets=imgAllSets, scale=3)  # 128x128 -> 384x384
+    # CHECKPOINT 2 - IMAGE REGISTRATION AND CORRUPTED IMAGE SET REMOVAL
+    if 2 in opt.ckpt:
+        # Load dataset
+        logging.info(f'Loading {band} dataset...')
+        TRAIN, TEST = loadData(arrayDir, band)
 
-    # Convert dataset to numpy array
-    output = imageSetToNumpyArrayHelper(imgAllSetsUpScaled, imgAllSets, isGrayScale=True, isNHWC=False)
+        # Process the train dataset
+        logging.info(f'Processing {band} train dataset...')
+        allImgLR, allMskLR, allImgHR, allMskHR = TRAIN
+        allImgMskLR = registerImages(allImgLR, allMskLR)  # np.ma.masked_array
+        allImgMskHR = convertToMaskedArray(allImgHR, allMskHR)  # np.ma.masked_array
+        trmImgMskLR, trmImgMskHR = removeCorruptedTrainImageSets(allImgMskLR, allImgMskHR, clarityThreshold=0.7)
+        trmImgMskLR = pickClearLRImgsPerImgSet(trmImgMskLR, numImgToPick=opt.numTopClearest, clarityThreshold=0.7)
 
-    # Intermediate writing of numpy arrays
-    # output = {'imgLRSetsUpscaled': [],
-    #           'imgLRSets': [],
-    #           'imgHRSets': [],
-    #           'maskLRSetsUpscaled': [],
-    #           'maskLRSets': [],
-    #           'maskHRSets': [],
-    #           'names': []}
-    saveArrays(output, DATA_BANK_DIRECTORY_PREPROCESSING_CHKPT)
+        # Process the test dataset
+        logging.info(f'Processing {band} test dataset...')
+        allImgLRTest, allMskLRTest = TEST
+        allImgMskLRTest = registerImages(allImgLRTest, allMskLRTest)  # np.ma.masked_array
+        trmImgMskLRTest = removeCorruptedTestImageSets(allImgMskLRTest, clarityThreshold=0.7)
+        trmImgMskLRTest = pickClearLRImgsPerImgSet(
+            trmImgMskLRTest, numImgToPick=opt.numTopClearest, clarityThreshold=0.7)
 
-    # Get shifts and trim dataset based on shift threshold
-    # Read more about this shifts happening in LR Images here
-    # https://kelvins.esa.int/proba-v-super-resolution/data/
-    # output = correctShifts(output, upsampleScale=1)
-    correctShiftsFromSavedArrays(os.path.join(DATA_BANK_DIRECTORY_PREPROCESSING_CHKPT,
-                                              'numpyArrays', opt.band),
-                                 os.path.join(DATA_BANK_DIRECTORY_PREPROCESSING_CHKPT,
-                                              'correctedShifts', opt.band),
-                                 output['names'], upsampleScale=1)
+        logging.info(f'Saving {band} trimmed dataset...')
+        if not os.path.exists(trimmedArrayDir):
+            os.makedirs(trimmedArrayDir)
+        trmImgMskLR.dump(os.path.join(trimmedArrayDir, f'TRAINimgLR_{band}.npy'))
+        trmImgMskHR.dump(os.path.join(trimmedArrayDir, f'TRAINimgHR_{band}.npy'))
+        trmImgMskLRTest.dump(os.path.join(trimmedArrayDir, f'TESTimgLR_{band}.npy'))
 
-    # Add key value element in output dictionary
-    output['upsampleScale'] = 3
+    # CHECKPOINT 3 - PATCH GENERATION
+    if 3 in opt.ckpt:
+        logging.info(f'Loading {band} patch dataset...')
+        trmImgMskLR = np.load(os.path.join(trimmedArrayDir, f'TRAINimgLR_{band}.npy'), allow_pickle=True)
+        trmImgMskHR = np.load(os.path.join(trimmedArrayDir, f'TRAINimgHR_{band}.npy'), allow_pickle=True)
+        trmImgMskLRTest = np.load(os.path.join(trimmedArrayDir, f'TESTimgLR_{band}.npy'), allow_pickle=True)
 
-    # Create Patches
-    # Need to device an even efficient way to find patches
-    # This method takes too much time
-    output = generatePatchDataset(output, useUpsample=True, patchSize=96,
-                                  thresholdPatchesPerImgSet=9, thresholdClarityLR=0.7,
-                                  thresholdClarityHR=0.85)
+        # Compute upsampleScale
+        upsampleScale = trmImgMskHR.shape[-1] // trmImgMskLR.shape[-1]
 
-    # Return a list of input outputs (maybe a 5D numpy array)
-    normArray = generateNormArray(dirList=output['names'])
+        # Generate patches
+        logging.info(f'Generating {band} Patches...')
 
-    # Save to file for training
+        numImgSet, numImgPerImgSet, C, H, W = trmImgMskLR.shape
+        patchesLR = generatePatches(trmImgMskLR, patchSize=opt.patchSizeLR, stride=opt.patchStrideLR)
+        patchesLR = patchesLR.reshape((numImgSet, -1, numImgPerImgSet, C, H, W))
+        patchesLR.dump(os.path.join(patchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
+
+        numImgSet, numImgPerImgSet, C, H, W = trmImgMskHR.shape
+        patchesHR = generatePatches(trmImgMskHR, patchSize=opt.patchSizeLR *
+                                    upsampleScale, stride=opt.patchStrideLR * upsampleScale)
+        patchesHR = patchesHR.reshape((numImgSet, -1, numImgPerImgSet, C, H, W))
+        patchesHR.dump(os.path.join(patchesDir, f'TRAINpatchesHR_{band}.npy'), protocol=4)
+
+    # CHECKPOINT 4 - CLEANING PATCHES
+    if 4 in opt.ckpt:
+        pass
+
+
+def augmentByRICAP():
+    pass
+
+
+def augmentByShuffling():
+    pass
+
+
+def shufflePatchSetAndAdd():
+    pass
 
 
 def generatePatches(imgSets: np.ma.masked_array, patchSize: int, stride: int) -> np.ma.masked_array:
@@ -93,7 +145,11 @@ def generatePatches(imgSets: np.ma.masked_array, patchSize: int, stride: int) ->
     Output:
     np.ma.masked_array[numImgSet, numImgPerImgSet * numPatches, channels, patchSize, patchSize]
     '''
-    return np.array([generatePatchesPerImgSet(imgSet, patchSize, stride) for imgSet in imgSets])
+    #       con'[ INFO ] Loading LR masks and dumping  '
+    desc = f'[ INFO ] Generating patches (k={patchSize}, s={stride})'
+    if imgSets.dtype != 'float32':
+        imgSets = imgSets.astype(np.float32)
+    return np.array([generatePatchesPerImgSet(imgSet, patchSize, stride) for imgSet in tqdm(imgSets, desc=desc)])
 
 
 def generatePatchesPerImgSet(images: np.ma.masked_array, patchSize: int, stride: int) -> np.ma.masked_array:
@@ -109,16 +165,16 @@ def generatePatchesPerImgSet(images: np.ma.masked_array, patchSize: int, stride:
     np.ma.masked_array[numImgPerImgSet * numPatches, channels, patchSize, patchSize]
     '''
     tensorImg = torch.tensor(images)
-    tensorMsk = torch.tensor(images.msk)
+    tensorMsk = torch.tensor(images.mask)
 
     _, channels, height, width = images.shape
 
     patchesImg = tensorImg.unfold(2, patchSize, stride).unfold(3, patchSize, stride)
-    patchesImg = patchesImg.reshape(-1, channels, height, width)  # [numImgPerImgSet * numPatches, C, H, W]
+    patchesImg = patchesImg.reshape(-1, channels, patchSize, patchSize)  # [numImgPerImgSet * numPatches, C, H, W]
     patchesImg = patchesImg.numpy()
 
     patchesMsk = tensorMsk.unfold(2, patchSize, stride).unfold(3, patchSize, stride)
-    patchesMsk = tensorMsk.reshape(-1, channels, height, width)
+    patchesMsk = patchesMsk.reshape(-1, channels, patchSize, patchSize)
     patchesMsk = patchesMsk.numpy()
 
     return np.ma.masked_array(patchesImg, mask=patchesMsk)
@@ -136,7 +192,9 @@ def registerImages(allImgLR: np.ndarray, allMskLR: np.ndarray) -> np.ma.masked_a
     Output:
     output: np.ma.masked_array with the same dimension
     '''
-    return np.array([registerImagesInSet(allImgLR[i], allMskLR[i]) for i in range(allImgLR.shape[0])])
+    #      '[ INFO ] Loading LR masks and dumping  '
+    desc = '[ INFO ] Registering LR images         '
+    return np.array([registerImagesInSet(allImgLR[i], allMskLR[i]) for i in tqdm(range(allImgLR.shape[0]), desc=desc)])
 
 
 def registerImagesInSet(imgLR: np.ndarray, mskLR: np.ndarray) -> np.ma.masked_array:
@@ -157,7 +215,7 @@ def registerImagesInSet(imgLR: np.ndarray, mskLR: np.ndarray) -> np.ma.masked_ar
     referImg = imgLR[np.argmax([np.count_nonzero(msk) for msk in mskLR])]
     for i, (img, msk) in enumerate(zip(imgLR, mskLR)):
         regImg, regMsk = registerFrame(img, msk.astype(bool), referImg)
-        mskdArray = np.ma.masked_array(regImg, mask=regMsk)
+        mskdArray = np.expand_dims(np.ma.masked_array(regImg, mask=regMsk), axis=0)
         if i == 0:
             regImgMskLR = mskdArray
         else:
@@ -165,7 +223,7 @@ def registerImagesInSet(imgLR: np.ndarray, mskLR: np.ndarray) -> np.ma.masked_ar
     return regImgMskLR
 
 
-def registerFrame(img: np.ndarray, msk: np.ndarray, referenceImg: np.ndarray) -> Tuple(np.ndarray, np.ndarray):
+def registerFrame(img: np.ndarray, msk: np.ndarray, referenceImg: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     '''
     Input:
     img: np.ndarray[channel, height, width]
@@ -197,14 +255,37 @@ def convertToMaskedArray(imgSets: np.ndarray, mskSets: np.ndarray) -> np.ma.mask
     '''
     imgSets = np.squeeze(imgSets, axis=1)  # [numImgSet, channel, height, width]
     mskSets = np.squeeze(mskSets, axis=1)  # [numImgSet, channel, height, width]
-    imgMskSets = np.array([np.ma.masked_array(img, mask=msk)
-                           for img, msk in zip(imgSets, mskSets)])  # [numImgSet, channel, height, width]
+    imgMskSets = np.ma.array([np.ma.masked_array(img, mask=msk)
+                              for img, msk in zip(imgSets, mskSets)])  # [numImgSet, channel, height, width]
     imgMskSets = np.expand_dims(imgMskSets, axis=1)  # [numImgSet, 1, channel, height, width]
     return imgMskSets
 
 
-def removeCorruptedImageSets(imgMskLR: np.ma.masked_array, imgMskHR: np.ma.masked_array,
-                             clarityThreshold: float) -> Tuple(np.ma.masked_array, np.ma.masked_array):
+def removeCorruptedTrainImageSets(imgMskLR: np.ma.masked_array, imgMskHR: np.ma.masked_array,
+                                  clarityThreshold: float) -> Tuple[np.ma.masked_array, np.ma.masked_array]:
+    '''
+    Remove imageset if ALL its LR frames is less than the given clarity threshold.
+
+    Input:
+    imgMskLR: np.ma.masked_array[numImgSet, numImgPerImgSet, channel, height, width]
+    imgMskHR: np.ma.masked_array[numImgSet,               1, channel, height, width]
+    clarityThreshold: float
+
+    Output:
+    trimmedImgMskLR: np.ma.masked_array[newNumImgSet, numImgPerImgSet, channel, height, width]
+    trimmedImgMskHR: np.ma.masked_array[newNumImgSet,               1, channel, height, width]
+                    where newNumImgSet <= numImgSet
+    '''
+    #      '[ INFO ] Loading LR masks and dumping  '
+    desc = '[ INFO ] Removing corrupted ImageSets  '
+    booleanMask = np.array([isImageSetNotCorrupted(imgSet, clarityThreshold) for imgSet in tqdm(imgMskLR, desc=desc)])
+    trimmedImgMskLR = imgMskLR[booleanMask]
+    trimmedImgMskHR = imgMskHR[booleanMask]
+    return (trimmedImgMskLR, trimmedImgMskHR)
+
+
+def removeCorruptedTestImageSets(imgMskLR: np.ma.masked_array,
+                                 clarityThreshold: float) -> np.ma.masked_array:
     '''
     Remove imageset if ALL its LR frames is less than the given clarity threshold.
 
@@ -214,13 +295,12 @@ def removeCorruptedImageSets(imgMskLR: np.ma.masked_array, imgMskHR: np.ma.maske
 
     Output:
     trimmedImgMskLR: np.ma.masked_array[newNumImgSet, numImgPerImgSet, channel, height, width]
-    trimmedImgMskHR: np.ma.masked_array[newNumImgSet,               1, channel, height, width]
                     where newNumImgSet <= numImgSet
     '''
-    booleanMask = np.array([isImageSetNotCorrupted(imgSet, clarityThreshold) for imgSet in imgMskLR])
+    desc = '[ INFO ] Removing corrupted ImageSets  '
+    booleanMask = np.array([isImageSetNotCorrupted(imgSet, clarityThreshold) for imgSet in tqdm(imgMskLR, desc=desc)])
     trimmedImgMskLR = imgMskLR[booleanMask]
-    trimmedImgMskHR = imgMskHR[booleanMask]
-    return (trimmedImgMskLR, trimmedImgMskHR)
+    return trimmedImgMskLR
 
 
 def isImageSetNotCorrupted(imgSet: np.ma.masked_array, clarityThreshold: float) -> bool:
@@ -235,10 +315,10 @@ def isImageSetNotCorrupted(imgSet: np.ma.masked_array, clarityThreshold: float) 
     Output:
     boolean that answers the question is ImageSet not Corrupted?
     '''
-    totalPixels = imgSet.shape[2] * imgSet.shape[3]  # width * height
-    isImageClearEnough = np.array([np.count_nonzero(img.mask)/totalPixels > clarityThreshold
+    # totalPixels = imgSet.shape[2] * imgSet.shape[3]  # width * height
+    isImageClearEnough = np.array([np.count_nonzero(img.mask)/(img.shape[1] * img.shape[2]) > clarityThreshold
                                    for img in imgSet])
-    return np.sum(isImageClearEnough) != len(imgSet)
+    return np.sum(isImageClearEnough) != 0
 
 
 def pickClearLRImgsPerImgSet(imgMskLR: np.ma.masked_array,
@@ -258,8 +338,9 @@ def pickClearLRImgsPerImgSet(imgMskLR: np.ma.masked_array,
     trimmedImgMskLR: np.ma.masked_array[newNumImgSet, numImgToPick, channel, height, width]
                         where numImgToPick <= numImgPerImgSet
     '''
+    desc = f'[ INFO ] Picking top {numImgToPick} clearest images '
     return np.ma.array([pickClearImg(filterImgMskSet(imgMsk, clarityThreshold), numImgToPick=numImgToPick)
-                        for imgMsk in imgMskLR])
+                        for imgMsk in tqdm(imgMskLR, desc=desc)])
 
 
 def pickClearImg(imgMsk: np.ma.masked_array, numImgToPick: int) -> np.ma.masked_array:
@@ -281,7 +362,7 @@ def pickClearImg(imgMsk: np.ma.masked_array, numImgToPick: int) -> np.ma.masked_
     else:
         trimmedImgMsk = np.copy(sortedImgMskArray)
         while len(trimmedImgMsk) < numImgToPick:
-            shuffledIndices = np.random.shuffle(sortedIndices)
+            shuffledIndices = np.random.choice(sortedIndices, size=len(sortedIndices), replace=False)
             toAppend = imgMsk[shuffledIndices]
             trimmedImgMsk = np.ma.concatenate((trimmedImgMsk, toAppend))
         trimmedImgMsk = trimmedImgMsk[:numImgToPick]
@@ -301,11 +382,41 @@ def filterImgMskSet(imgSet: np.ma.masked_array, clarityThreshold: float) -> np.m
     filteredImgSet: np.ma.masked_array[newNumImgPerImgSet, channel, height, width]
                         where newNumImgPerImgSet <= numImgPerImgSet
     '''
-    totalPixels = imgSet.shape[2] * imgSet.shape[3]  # width * height
-    isImageClearEnough = np.array([np.count_nonzero(img.mask)/totalPixels > clarityThreshold
+    # totalPixels = imgSet.shape[2] * imgSet.shape[3]  # width * height
+    isImageClearEnough = np.array([np.count_nonzero(img.mask)/(img.shape[1] * img.shape[2]) > clarityThreshold
                                    for img in imgSet])  # boolean mask
     filteredImgSet = imgSet[isImageClearEnough]
     return filteredImgSet
+
+
+def loadData(arrayDir: str, band: str):
+    '''
+    Input:
+    arrayDir: str -> the path folder for which you saved .npy files
+    band: str -> 'NIR' or 'RED'
+    isTrainData: bool -> set to true if dealing with the train dataset
+
+    Output:
+    List[Tuple(train data), Tuple(test data)]
+    '''
+    # Check input dir validity
+    if not os.path.exists(arrayDir):
+        raise Exception("[ ERROR ] Folder path does not exists...")
+    if not os.listdir(arrayDir):
+        raise Exception("[ ERROR ] No files in the provided directory...")
+
+    TRAINimgLR = np.load(os.path.join(arrayDir, f'TRAINimgLR_{band}.npy'), allow_pickle=True)
+    TRAINimgHR = np.load(os.path.join(arrayDir, f'TRAINimgHR_{band}.npy'), allow_pickle=True)
+    TRAINmskLR = np.load(os.path.join(arrayDir, f'TRAINmskLR_{band}.npy'), allow_pickle=True)
+    TRAINmskHR = np.load(os.path.join(arrayDir, f'TRAINmskHR_{band}.npy'), allow_pickle=True)
+
+    TESTimgLR = np.load(os.path.join(arrayDir, f'TESTimgLR_{band}.npy'), allow_pickle=True)
+    TESTmskLR = np.load(os.path.join(arrayDir, f'TESTmskLR_{band}.npy'), allow_pickle=True)
+
+    TRAIN = (TRAINimgLR, TRAINmskLR, TRAINimgHR, TRAINmskHR)
+    TEST = (TESTimgLR, TESTmskLR)
+
+    return TRAIN, TEST
 
 
 def loadAndSaveRawData(rawDataDir: str, arrayDir: str, band: str, isGrayScale=True, isTrainData=True):
@@ -333,15 +444,15 @@ def loadAndSaveRawData(rawDataDir: str, arrayDir: str, band: str, isGrayScale=Tr
     key = 'TRAIN' if isTrainData else 'TEST'
 
     # Get directories (OS agnostic)
-    trainDir = os.path.join(rawDataDir, 'train', band)
+    trainDir = os.path.join(rawDataDir, key.lower(), band)
     dirList = sorted(glob.glob(os.path.join(trainDir, 'imgset*')))
 
     # Load all low resolution images in a massive array and dump!
     # The resulting numpy array has dimensions [numImgSet, numLowResImgPerImgSet, channel, height, width]
     descForImgLR = '[ INFO ] Loading LR images and dumping '
-    imgLR = np.array([[io.imread(fName).transpose((2, 0, 1)) if not isGrayScale
-                       else np.expand_dims(io.imread(fName), axis=0)
-                       for fName in sorted(glob.glob(os.path.join(dirName, 'LR*.png')))]
+    imgLR = np.array([np.array([io.imread(fName).transpose((2, 0, 1)) if not isGrayScale
+                                else np.expand_dims(io.imread(fName), axis=0)
+                                for fName in sorted(glob.glob(os.path.join(dirName, 'LR*.png')))])
                       for dirName in tqdm(dirList, desc=descForImgLR)])
 
     imgLR.dump(os.path.join(arrayDir, f'{key}imgLR_{band}.npy'))
@@ -349,9 +460,9 @@ def loadAndSaveRawData(rawDataDir: str, arrayDir: str, band: str, isGrayScale=Tr
     # Load all low resolution masks in a massive array and dump!
     # The resulting numpy array has dimensions [numImgSet, numLowResMaskPerImgSet, channel, height, width]
     descForMaskLR = '[ INFO ] Loading LR masks and dumping  '
-    mskLR = np.array([[io.imread(fName).transpose((2, 0, 1)) if not isGrayScale
-                       else np.expand_dims(io.imread(fName), axis=0)
-                       for fName in sorted(glob.glob(os.path.join(dirName, 'QM*.png')))]
+    mskLR = np.array([np.array([io.imread(fName).transpose((2, 0, 1)) if not isGrayScale
+                                else np.expand_dims(io.imread(fName), axis=0)
+                                for fName in sorted(glob.glob(os.path.join(dirName, 'QM*.png')))])
                       for dirName in tqdm(dirList, desc=descForMaskLR)])
 
     mskLR.dump(os.path.join(arrayDir, f'{key}mskLR_{band}.npy'))
@@ -722,7 +833,7 @@ def generateDataDir(isTrainData: bool, NIR: bool):
     dataType = 'train' if isTrainData else 'test'
     imageDir = os.path.join(DATA_BANK_DIRECTORY, dataType, band)
     dirList = sorted([os.path.basename(x) for x in glob.glob(imageDir + '/imgset*')])
-    #dirList = dirList[:25]
+    # dirList = dirList[:25]
     return dirList
 
 
@@ -1246,4 +1357,4 @@ def correctShiftsFromSavedArrays(folderPath: str, outputDir: str, names: List[st
 
 if __name__ == '__main__':
     opt = parser()
-    main(opt)
+    main()
