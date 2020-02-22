@@ -34,7 +34,7 @@ def parser():
     parser.add_argument('--numTopClearest', type=int, default=9)
     parser.add_argument('--patchSizeLR', type=int, default=32)
     parser.add_argument('--patchStrideLR', type=int, default=2)
-    parser.add_argument('--ckpt', type=int, nargs='+opt.numTopClearest', default=[1, 2, 3, 4])
+    parser.add_argument('--ckpt', type=int, nargs='+', default=[1, 2, 3, 4])
     opt = parser.parse_args()
     return opt
 
