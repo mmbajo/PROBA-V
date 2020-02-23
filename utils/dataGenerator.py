@@ -142,6 +142,11 @@ def main():
         trmPatchesLR, trmPatchesHR = pickClearPatches(
             trmPatchesLR, trmPatchesHR, clarityThreshold=opt.clarityThresholdHR)
 
+        # Reshape to [N, C, D, H, W] for PyTorch training
+        logging.info(f'Reshaping {band} train patches...')
+        trmPatchesLR = trmPatchesLR.permute((0, 2, 1, 3, 4))
+        trmPatchesHR = trmPatchesHR.permute((0, 2, 1, 3, 4))
+
         logging.info(f'Saving {band} train patches...')
         trmPatchesLR.dump(os.path.join(trimmedPatchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
         trmPatchesHR.dump(os.path.join(trimmedPatchesDir, f'TRAINpatchesHR_{band}.npy'), protocol=4)
