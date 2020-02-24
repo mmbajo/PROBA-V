@@ -28,6 +28,10 @@ def WDSRConv3D(scale: int, numFilters: int, resBlockConv3D: tf.layers, kernelSiz
 
     # Fuse Main and Residual Patch
     out = Add()([main, residual])
+
+    # Denormalize Instance
+    out = Lambda(lambda x: tf.math.add(tf.math.multiply(x, allStdDev), allMean))
+
     return Model(imgLR, out, name='WDSRConv3D')
 
 
