@@ -24,7 +24,7 @@ def parseConfig(path: str) -> List[Dict]:
         if line.startswith('['):
             moduleDefs.append({})
             moduleDefs[-1]['type'] = line[1:-1].lstrip().rstrip()
-            if moduleDefs[-1]['type'] = 'convolutional':
+            if moduleDefs[-1]['type'] == 'convolutional':
                 moduleDefs[-1]['batchNormalize'] = 0
                 moduleDefs[-1]['instNormalize'] = 0
         else:
