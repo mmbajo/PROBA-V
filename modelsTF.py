@@ -28,7 +28,7 @@ def WDSRConv3D(scale: int, numFilters: int, resBlockConv3D: tf.layers, kernelSiz
 
     # Fuse Main and Residual Patch
     out = Add()([main, residual])
-    return out
+    return Model(imgLR, out, name='WDSRConv3D')
 
 
 def WDSRNetResidualPath(meanImgLR: tf.tensor, kernelSize: tuple, scale: int):
