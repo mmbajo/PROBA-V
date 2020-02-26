@@ -1,5 +1,5 @@
 # PROBA-V
-# Requirements
+## Requirements
 ```python
 torch=1.4
 tensorflow=2.1.0
@@ -10,8 +10,8 @@ matplotlib
 tqdm
 ```
 
-# Usage
-## Preprocessing
+## Usage
+### Preprocessing
 ```sh
 python3 utils/dataGenerator.py --dir probav_data \
                                --ckptdir dataset \
