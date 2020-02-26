@@ -41,7 +41,7 @@ def main():
 
     logger.info('Building model...')
     model = WDSRConv3D(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=8,
-                       expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=32)
+                       expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=32, isGrayScale=True)
 
     if opt.optimizer == 'adam':
         optimizer = Adam(learning_rate=5e-4)

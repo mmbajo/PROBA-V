@@ -74,7 +74,7 @@ def shiftCompensatedL1Loss(patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: t
     return minLoss
 
 
-def stackL1Loss(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[tf.float32]):
+def stackL1Loss(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
     N, cropSizeHeight, cropSizeWidth, C = tf.shape(cropPred)
     cropTrueImg = cropImage(patchHR, i, cropSizeHeight, j, cropSizeWidth)
     cropTrueMsk = cropImage(maskHR, i, cropSizeHeight, j, cropSizeWidth)
@@ -90,7 +90,7 @@ def stackL1Loss(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred:
     cache.append(L1Loss)
 
 
-def stackL2Loss(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[tf.float32]):
+def stackL2Loss(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
     N, cropSizeHeight, cropSizeWidth, C = tf.shape(cropPred)
     cropTrueImg = cropImage(patchHR, i, cropSizeHeight, j, cropSizeWidth)
     cropTrueMsk = cropImage(maskHR, i, cropSizeHeight, j, cropSizeWidth)
@@ -106,7 +106,7 @@ def stackL2Loss(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred:
     cache.append(L2Loss)
 
 
-def stackcPSNR(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[tf.float32]):
+def stackcPSNR(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
     N, cropSizeHeight, cropSizeWidth, C = tf.shape(cropPred)
     cropTrueImg = cropImage(patchHR, i, cropSizeHeight, j, cropSizeWidth)
     cropTrueMsk = cropImage(maskHR, i, cropSizeHeight, j, cropSizeWidth)
@@ -145,6 +145,6 @@ def computeBiasBrightness(totalClearPixels, HR, SR):
     return b
 
 
-def cropImage(imgBatch: tf.tensor, startIdxH: int, lengthHeight: int,
-              startIdxW: int, lengthWidth: int) -> tf.tensor:
+def cropImage(imgBatch: tf.Tensor, startIdxH: int, lengthHeight: int,
+              startIdxW: int, lengthWidth: int) -> tf.Tensor:
     return tf.cast(imgBatch[:, startIdxH: startIdxH + lengthHeight, startIdxW: startIdxW + lengthWidth, :], tf.float32)

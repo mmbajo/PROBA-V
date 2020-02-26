@@ -29,7 +29,7 @@ def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--band', default='NIR', type=str)
     parser.add_argument('--dir', type=str, default=DATA_BANK_DIRECTORY)
-    parser.add_argument('--chkptdir', default='/home/mark/DataBank/PROBA-V-CHKPT', type=str)
+    parser.add_argument('--ckptdir', default='/home/mark/DataBank/PROBA-V-CHKPT', type=str)
     parser.add_argument('--split', type=float, default=0.7)
     parser.add_argument('--numTopClearest', type=int, default=9)
     parser.add_argument('--patchSizeLR', type=int, default=32)
@@ -43,7 +43,7 @@ def parser():
 
 def main():
     rawDataDir = opt.dir
-    cleanDataDir = opt.chkptdir
+    cleanDataDir = opt.ckptdir
     band = opt.band
     arrayDir = os.path.join(cleanDataDir, 'arrayDir')
     trimmedArrayDir = os.path.join(cleanDataDir, 'trimmedArrayDir')
@@ -144,8 +144,9 @@ def main():
 
         # Reshape to [N, C, D, H, W] for PyTorch training
         logging.info(f'Reshaping {band} train patches...')
-        trmPatchesLR = trmPatchesLR.transpose((0, 2, 1, 3, 4))
-        trmPatchesHR = trmPatchesHR.transpose((0, 2, 1, 3, 4))
+        trmPatchesLR = trmPatchesLR.transpose((0, 3, 4, 2, 1))  # shape is (numImgSet, H, W, numLRImg, C)
+        trmPatchesHR = trmPatchesHR.transpose((0, 3, 4, 2, 1))
+        trmPatchesHR = trmPatchesHR.squeeze(3)  # (numImgSet, H, W, C)
 
         logging.info(f'Saving {band} train patches...')
         trmPatchesLR.dump(os.path.join(trimmedPatchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
