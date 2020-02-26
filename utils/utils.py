@@ -1,5 +1,7 @@
 from typing import List, Tuple
 
+import tensorflow as tf
+
 
 def samePaddingForConv3d(inputSize: Tuple[int], kernelSize: Tuple[int], stride: Tuple[int]) -> Tuple[int]:
     _, dIn, hIn, wIn = inputSize
@@ -10,3 +12,13 @@ def samePaddingForConv3d(inputSize: Tuple[int], kernelSize: Tuple[int], stride: 
 
     padding = (dPad, hPad, wPad)
     return padding
+
+
+def loadTrainDataAsTFDataSet(X, y, epochs, batchSize, bufferSize):
+    return tf.data.Dataset.from_tensor_slices(
+        (*X, *y)).shuffle(bufferSize, reshuffle_each_iteration=True).repeat(epochs).batch(batchSize).prefetch(tf.data.experimental.AUTOTUNE)
+
+
+def loadValDataAsTFDataSet(X, y, valSteps, batchSize, bufferSize):
+    return tf.data.Dataset.from_tensor_slices(
+        (*X, *y)).shuffle(bufferSize).batch(batchSize).prefetch(tf.data.experimental.AUTOTUNE).take(valSteps)

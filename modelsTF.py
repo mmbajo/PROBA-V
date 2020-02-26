@@ -4,7 +4,7 @@ from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Conv3D, Conv2D, Lambda, Add, Reshape
 
 
-def WDSRConv3D(scale: int, numFilters: int, resBlockConv3D: tf.layers, kernelSize: tuple,
+def WDSRConv3D(scale: int, numFilters: int, kernelSize: tuple,
                numResBlocks: int, expRate: int, decayRate: float, numImgLR: int, patchSizeLR: int) -> Model:
     # Define inputs
     imgLR = Input(shape=(patchSizeLR, patchSizeLR, numImgLR, 1))
