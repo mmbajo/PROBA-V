@@ -44,12 +44,12 @@ def main():
                        expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=32)
 
     if opt.optimizer == 'adam':
-        optimizer = tf.keras.optimizers.Adam(learning_rate=5e-4)
+        optimizer = Adam(learning_rate=5e-4)
     elif opt.optimizer == 'nadam':
         # http://cs229.stanford.edu/proj2015/054_report.pdf
-        optimizer = tf.keras.optimizers.Nadam(learning_rate=5e-4)
+        optimizer = Nadam(learning_rate=5e-4)
     else:
-        optimizer = tf.keras.optimizers.SGD(learning_rate=5e-4)
+        optimizer = SGD(learning_rate=5e-4)
 
     checkpoint = tf.train.Checkpoint(step=tf.Variable(0),
                                      psnr=tf.Variable(1.0),
