@@ -1,4 +1,23 @@
 # PROBA-V
+# Requirements
+```python
+torch=1.4
+tensorflow=2.1.0
+tensorflow-addons=0.5.2
+scikit-image=0.15
+numpy
+matplotlib
+tqdm
+```
+
+# Usage
+## Preprocessing
+```sh
+python3 utils/dataGenerator.py --dir probav_data \
+                               --ckptdir dataset \
+                               --band NIR
+
+```
 ## Understanding the problem
 The challenge is to restore a low resolution image to a high resolution one. Simple enough?? Let's go!
 
