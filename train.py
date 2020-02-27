@@ -77,13 +77,14 @@ def main():
     testLoss = Mean(name='testLoss')
     testPSNR = Mean(name='testPSNR')
 
-    fitTrainData(model, optimizer, trainLoss, trainPSNR, testLoss, testPSNR,
+    fitTrainData(model, optimizer, [trainLoss, trainPSNR, testLoss, testPSNR],
                  X_train, y, opt.batchSize, opt.epochs, 512, valData, 100,
                  checkpoint, checkpointManager,
                  opt.logDir, opt.ckptDir, opt.saveBestOnly)
 
 
-def fitTrainData(model, optimizer, trainLoss, trainPSNR, testLoss, testPSNR,
+def fitTrainData(model: tf.keras.Model, optimizer: tf.keras.optimizers,
+                 metrics: List[tf.keras.metrics.Mean],
                  X, y, batchSize, epochs, bufferSize, valData, valSteps,
                  checkpoint, checkpointManager,
                  logDir, ckptDir, saveBestOnly):
@@ -99,6 +100,9 @@ def fitTrainData(model, optimizer, trainLoss, trainPSNR, testLoss, testPSNR,
     globalStep = checkpoint.step
     step = globalStep % totalSteps
     epoch = 0
+
+    # Metrics
+    trainLoss, trainPSNR, testLoss, testPSNR = metrics
 
     with w.as_default():
         for x_batch_train, y_batch_train, y_mask_batch_train in trainSet:
