@@ -22,8 +22,8 @@ def shiftCompensatedcPSNR(patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf
     cachecPSNR = []
 
     # Iterate through all possible shift configurations
-    for i in range(MAX_PIXEL_SHIFT+1):
-        for j in range(MAX_PIXEL_SHIFT+1):
+    for i in tf.range(MAX_PIXEL_SHIFT+1):
+        for j in tf.range(MAX_PIXEL_SHIFT+1):
             stackcPSNR(i, j, patchHR, maskHR, cropPrediction, cachecPSNR)
     cachecPSNR = tf.stack(cachecPSNR)
     maxcPSNR = tf.reduce_max(cachecPSNR)
@@ -44,8 +44,8 @@ def shiftCompensatedL2Loss(patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: t
     cacheLosses = []
 
     # Iterate through all possible shift configurations
-    for i in range(MAX_PIXEL_SHIFT+1):
-        for j in range(MAX_PIXEL_SHIFT+1):
+    for i in tf.range(MAX_PIXEL_SHIFT+1):
+        for j in tf.range(MAX_PIXEL_SHIFT+1):
             stackL2Loss(i, j, patchHR, maskHR, cropPrediction, cacheLosses)
     cacheLosses = tf.stack(cacheLosses)
     minLoss = tf.reduce_min(cacheLosses)
@@ -66,8 +66,8 @@ def shiftCompensatedL1Loss(patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: t
     cacheLosses = []
 
     # Iterate through all possible shift configurations
-    for i in range(MAX_PIXEL_SHIFT+1):
-        for j in range(MAX_PIXEL_SHIFT+1):
+    for i in tf.range(MAX_PIXEL_SHIFT+1):
+        for j in tf.range(MAX_PIXEL_SHIFT+1):
             stackL1Loss(i, j, patchHR, maskHR, cropPrediction, cacheLosses)
     cacheLosses = tf.stack(cacheLosses)
     minLoss = tf.reduce_min(cacheLosses)
@@ -140,7 +140,7 @@ def computecPSNR(totalClearPixels, HR, correctedSR):
 
 def computeBiasBrightness(totalClearPixels, HR, SR):
     N, H, W, C = tf.shape(HR)
-    b = (1.0 / totalClearPixels) * tf.reduce_sum(tf.subtract(HR, SR), axis=(1, 2))
+    b = (1.0 / totalClearPixels) * tf.reduce_sum(tf.subtract(HR, SR), axis=(1, 2, 3))
     b = tf.reshape(b, (N, 1, 1, C))
     return b
 

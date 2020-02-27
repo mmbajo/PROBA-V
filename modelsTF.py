@@ -12,12 +12,13 @@ def WDSRConv3D(scale: int, numFilters: int, kernelSize: tuple,
         else Input(shape=(patchSizeLR, patchSizeLR, numImgLR, 3))
 
     # Get mean of instance mean patch and over all mean pixel value
-    meanImgLR = Lambda(lambda x: tf.reduce_mean(x, axis=3))(imgLRIn)
-    allMean = Lambda(lambda x: tf.reduce_mean(x))(imgLRIn)
-    allStdDev = Lambda(lambda x: tf.math.reduce_std(x))(imgLRIn)
+    imgLR = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]], mode='REFLECT'))(imgLRIn)
+    meanImgLR = Lambda(lambda x: tf.reduce_mean(x, axis=3))(imgLR)
+    allMean = Lambda(lambda x: tf.reduce_mean(x))(imgLR)
+    allStdDev = Lambda(lambda x: tf.math.reduce_std(x))(imgLR)
 
     # Normalize Instance
-    imgLR = Lambda(lambda x: tf.math.divide(tf.math.subtract(x, allMean), allStdDev))(imgLRIn)
+    imgLR = Lambda(lambda x: tf.math.divide(tf.math.subtract(x, allMean), allStdDev))(imgLR)
     meanImgLR = Lambda(lambda x: tf.math.divide(tf.math.subtract(x, allMean), allStdDev))(meanImgLR)
 
     # ImgResBlocks | Main Path
@@ -38,7 +39,7 @@ def WDSRConv3D(scale: int, numFilters: int, kernelSize: tuple,
 
 
 def WDSRNetResidualPath(meanImgLR: tf.Tensor, kernelSize: tuple, scale: int):
-    x = Lambda(lambda x: tf.pad(x, [[0, 0], [2, 2], [2, 2], [0, 0]], mode='REFLECT'))(meanImgLR)
+    x = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT'))(meanImgLR)
     x = weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize, padding='valid', activation='relu')(x)
     x = weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize, padding='valid')(x)
     x = Lambda(lambda x: tf.nn.depth_to_space(x, scale))(x)

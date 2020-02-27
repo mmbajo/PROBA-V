@@ -28,6 +28,9 @@ def parser():
     parser.add_argument('--logDir', type=str, default='logs')
     parser.add_argument('--ckptDir', type=str, default='checkpoint')
     parser.add_argument('--optim', type=str, default='adam')
+    parser.add_argument('--dataBufferSize', type=int, default=512)
+    parser.add_argument('--valSteps', type=int, default=100)
+    parser.add_argument('--evalTestStep', type=int, default=100)
     opt = parser.parse_args()
     return opt
 
@@ -65,11 +68,10 @@ def main():
     patchLR = np.load(opt.patchLR, allow_pickle=True)
     patchHR = np.load(opt.patchHR, allow_pickle=True)
 
-    X_train, X_val, y_train, y_val, y_train_mask, y_val_mask = train_test_split(
-        patchLR, patchHR, patchHR.mask, test_size=opt.split, random_state=17)
+    X_train, X_val, y_train, y_val = train_test_split(
+        patchLR, patchHR, test_size=opt.split, random_state=17)
 
-    y = [y_train, y_train_mask]
-    valData = [X_val, [y_val, y_val_mask]]
+    valData = [X_val, y_val]
 
     # Initialize metrics
     trainLoss = Mean(name='trainLoss')
@@ -78,16 +80,23 @@ def main():
     testPSNR = Mean(name='testPSNR')
 
     fitTrainData(model, optimizer, [trainLoss, trainPSNR, testLoss, testPSNR],
-                 X_train, y, opt.batchSize, opt.epochs, 512, valData, 100,
+                 shiftCompensatedL1Loss,
+                 shiftCompensatedcPSNR,
+                 X_train, y_train,
+                 opt.batchSize, opt.epochs, opt.dataBufferSize, valData, opt.valSteps,
                  checkpoint, checkpointManager,
                  opt.logDir, opt.ckptDir, opt.saveBestOnly)
 
 
 def fitTrainData(model: tf.keras.Model, optimizer: tf.keras.optimizers,
                  metrics: List[tf.keras.metrics.Mean],
-                 X, y, batchSize, epochs, bufferSize, valData, valSteps,
-                 checkpoint, checkpointManager,
-                 logDir, ckptDir, saveBestOnly):
+                 lossFunc: Callable[tf.Tensor, tf.Tensor, tf.Tensor],
+                 PSNRFunc: Callable[tf.Tensor, tf.Tensor, tf.Tensor],
+                 X: np.ma.array, y: np.ma.array,
+                 batchSize: int, epochs: int, bufferSize: int,
+                 valData: List[np.ma.array], valSteps: int,
+                 checkpoint: tf.train.Checkpoint, checkpointManager: tf.train.CheckpointManager,
+                 logDir: str, ckptDir: str, saveBestOnly: bool):
 
     trainSet = loadTrainDataAsTFDataSet(X, y, epochs, batchSize, bufferSize)
     valSet = loadValDataAsTFDataSet(valData[0], valData[1], valSteps, batchSize, bufferSize)
@@ -95,9 +104,9 @@ def fitTrainData(model: tf.keras.Model, optimizer: tf.keras.optimizers,
     # Logger
     w = tf.summary.create_file_writer(logDir)
 
-    dataSetLength = (*X, *y)[0].shape[0]
+    dataSetLength = len(X)
     totalSteps = tf.cast(dataSetLength/batchSize, tf.int64)
-    globalStep = checkpoint.step
+    globalStep = tf.cast(checkpoint.step, tf.int64)
     step = globalStep % totalSteps
     epoch = 0
 
@@ -118,7 +127,8 @@ def fitTrainData(model: tf.keras.Model, optimizer: tf.keras.optimizers,
 
             step += 1
             globalStep += 1
-            trainStep(x_batch_train, y_batch_train, y_mask_batch_train)
+            trainStep(x_batch_train, y_batch_train, y_mask_batch_train, checkpoint,
+                      lossFunc, PSNRFunc, trainLoss, trainPSNR)
             checkpoint.step.assign_add(1)
 
             t = f"step {step}/{int(totalSteps)}, loss: {trainLoss.result():.3f}, psnr: {trainPSNR.result():.3f}"
@@ -128,12 +138,13 @@ def fitTrainData(model: tf.keras.Model, optimizer: tf.keras.optimizers,
 
             tf.summary.scalar('Train loss', trainLoss.result(), step=globalStep)
 
-            if step != 0 and (step % 100) == 0:
+            if step != 0 and (step % opt.evalTestStep) == 0:
                 # Reset states for test
                 testLoss.reset_states()
                 testPSNR.reset_states()
                 for x_batch_val, y_batch_val, y_mask_batch_val in valSet:
-                    testStep(x_batch_val, y_batch_val, y_mask_batch_val, checkpoint)
+                    testStep(x_batch_val, y_batch_val, y_mask_batch_val, checkpoint,
+                             lossFunc, PSNRFunc, testLoss, testPSNR)
                 tf.summary.scalar(
                     'Test loss', testLoss.result(), step=globalStep)
                 tf.summary.scalar(
@@ -150,25 +161,25 @@ def fitTrainData(model: tf.keras.Model, optimizer: tf.keras.optimizers,
 
 
 @tf.function
-def trainStep(lr, mean_lr, hr, mask, checkpoint, loss, metric, trainLoss, trainPSNR):
+def trainStep(patchLR, patchHR, maskHR, checkpoint, loss, metric, trainLoss, trainPSNR):
     with tf.GradientTape() as tape:
 
-        sr = checkpoint.model([lr, mean_lr], training=True)
-        loss = loss(hr, sr, mask)
+        predPatchHR = checkpoint.model(patchLR, training=True)
+        loss = loss(patchHR, maskHR, predPatchHR)  # Loss(patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor)
 
     gradients = tape.gradient(loss, checkpoint.model.trainable_variables)
     checkpoint.optimizer.apply_gradients(zip(gradients, checkpoint.model.trainable_variables))
 
-    metric = metric(hr, mask, sr)
+    metric = metric(patchHR, maskHR, predPatchHR)
     trainLoss(loss)
     trainPSNR(metric)
 
 
 @tf.function
-def testStep(lr, mean_lr, hr, mask, checkpoint, loss, metric, testLoss, testPSNR):
-    sr = checkpoint.model([lr, mean_lr], training=False)
-    loss = loss(hr, mask, sr)
-    metric = metric(hr, mask, sr)
+def testStep(patchLR, patchHR, maskHR, checkpoint, loss, metric, testLoss, testPSNR):
+    sr = checkpoint.model(patchLR, training=False)
+    loss = loss(patchHR, maskHR, predPatchHR)
+    metric = metric(patchHR, maskHR, predPatchHR)
 
     testLoss(loss)
     testPSNR(metric)
