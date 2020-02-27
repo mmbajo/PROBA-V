@@ -14,10 +14,10 @@ def shiftCompensatedcPSNR(patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf
     This is how the ESA has been computing the submissions of the contestants.
     See details at the ff link: https://kelvins.esa.int/proba-v-super-resolution/scoring/
     '''
-    N, H, W, C = tf.shape(patchHR)
+    theShape = tf.shape(patchHR)
 
-    cropSizeHeight = H - MAX_PIXEL_SHIFT
-    cropSizeWidth = W - MAX_PIXEL_SHIFT
+    cropSizeHeight = theShape[1] - MAX_PIXEL_SHIFT
+    cropSizeWidth = theShape[2] - MAX_PIXEL_SHIFT
     cropPrediction = cropImage(predPatchHR, CROP_BORDER, cropSizeHeight, CROP_BORDER, cropSizeWidth)
     cachecPSNR = []
 
@@ -36,10 +36,10 @@ def shiftCompensatedL2Loss(patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: t
     This is how the ESA has been computing the submissions of the contestants.
     See details at the ff link: https://kelvins.esa.int/proba-v-super-resolution/scoring/
     '''
-    N, H, W, C = tf.shape(patchHR)
+    theShape = tf.shape(patchHR)
 
-    cropSizeHeight = H - MAX_PIXEL_SHIFT
-    cropSizeWidth = W - MAX_PIXEL_SHIFT
+    cropSizeHeight = theShape[1] - MAX_PIXEL_SHIFT
+    cropSizeWidth = theShape[2] - MAX_PIXEL_SHIFT
     cropPrediction = cropImage(predPatchHR, CROP_BORDER, cropSizeHeight, CROP_BORDER, cropSizeWidth)
     cacheLosses = []
 
@@ -58,10 +58,10 @@ def shiftCompensatedL1Loss(patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: t
     This is how the ESA has been computing the submissions of the contestants.
     See details at the ff link: https://kelvins.esa.int/proba-v-super-resolution/scoring/
     '''
-    N, H, W, C = tf.shape(patchHR)
+    theShape = tf.shape(patchHR)
 
-    cropSizeHeight = H - MAX_PIXEL_SHIFT
-    cropSizeWidth = W - MAX_PIXEL_SHIFT
+    cropSizeHeight = theShape[1] - MAX_PIXEL_SHIFT
+    cropSizeWidth = theShape[2] - MAX_PIXEL_SHIFT
     cropPrediction = cropImage(predPatchHR, CROP_BORDER, cropSizeHeight, CROP_BORDER, cropSizeWidth)
     cacheLosses = []
 
@@ -75,9 +75,9 @@ def shiftCompensatedL1Loss(patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: t
 
 
 def stackL1Loss(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
-    N, cropSizeHeight, cropSizeWidth, C = tf.shape(cropPred)
-    cropTrueImg = cropImage(patchHR, i, cropSizeHeight, j, cropSizeWidth)
-    cropTrueMsk = cropImage(maskHR, i, cropSizeHeight, j, cropSizeWidth)
+    theShape = tf.shape(cropPred)
+    cropTrueImg = cropImage(patchHR, i, theShape[1], j, theShape[2])
+    cropTrueMsk = cropImage(maskHR, i, theShape[1], j, theShape[2])
     cropPredMskd = cropPred * cropTrueMsk
     totalClearPixels = tf.reduce_sum(cropTrueMsk, axis=(1, 2, 3))
 
@@ -91,9 +91,9 @@ def stackL1Loss(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred:
 
 
 def stackL2Loss(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
-    N, cropSizeHeight, cropSizeWidth, C = tf.shape(cropPred)
-    cropTrueImg = cropImage(patchHR, i, cropSizeHeight, j, cropSizeWidth)
-    cropTrueMsk = cropImage(maskHR, i, cropSizeHeight, j, cropSizeWidth)
+    theShape = tf.shape(cropPred)
+    cropTrueImg = cropImage(patchHR, i, theShape[1], j, theShape[2])
+    cropTrueMsk = cropImage(maskHR, i, theShape[1], j, theShape[2])
     cropPredMskd = cropPred * cropTrueMsk
     totalClearPixels = tf.reduce_sum(cropTrueMsk, axis=(1, 2, 3))
 
@@ -107,9 +107,9 @@ def stackL2Loss(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred:
 
 
 def stackcPSNR(i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
-    N, cropSizeHeight, cropSizeWidth, C = tf.shape(cropPred)
-    cropTrueImg = cropImage(patchHR, i, cropSizeHeight, j, cropSizeWidth)
-    cropTrueMsk = cropImage(maskHR, i, cropSizeHeight, j, cropSizeWidth)
+    theShape = tf.shape(cropPred)
+    cropTrueImg = cropImage(patchHR, i, theShape[1], j, theShape[2])
+    cropTrueMsk = cropImage(maskHR, i, theShape[1], j, theShape[2])
     cropPredMskd = cropPred * cropTrueMsk
     totalClearPixels = tf.reduce_sum(cropTrueMsk, axis=(1, 2, 3))
 
@@ -139,9 +139,9 @@ def computecPSNR(totalClearPixels, HR, correctedSR):
 
 
 def computeBiasBrightness(totalClearPixels, HR, SR):
-    N, H, W, C = tf.shape(HR)
+    theShape = tf.shape(HR)
     b = (1.0 / totalClearPixels) * tf.reduce_sum(tf.subtract(HR, SR), axis=(1, 2, 3))
-    b = tf.reshape(b, (N, 1, 1, C))
+    b = tf.reshape(b, (theShape[0], 1, 1, theShape[3]))
     return b
 
 

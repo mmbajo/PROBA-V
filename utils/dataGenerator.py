@@ -342,11 +342,11 @@ def generatePatchesPerImgSet(images: np.ma.masked_array, patchSize: int, stride:
 
     _, channels, height, width = images.shape
 
-    patchesImg = tensorImg.unfold(2, patchSize, stride).unfold(3, patchSize, stride)
+    patchesImg = tensorImg.unfold(1, channels, channels).unfold(2, patchSize, stride).unfold(3, patchSize, stride)
     patchesImg = patchesImg.reshape(-1, channels, patchSize, patchSize)  # [numImgPerImgSet * numPatches, C, H, W]
     patchesImg = patchesImg.numpy()
 
-    patchesMsk = tensorMsk.unfold(2, patchSize, stride).unfold(3, patchSize, stride)
+    patchesMsk = tensorMsk.unfold(1, channels, channels).unfold(2, patchSize, stride).unfold(3, patchSize, stride)
     patchesMsk = patchesMsk.reshape(-1, channels, patchSize, patchSize)
     patchesMsk = patchesMsk.numpy()
 
