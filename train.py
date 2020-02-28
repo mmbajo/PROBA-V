@@ -90,16 +90,16 @@ def main():
 
 def fitTrainData(model: tf.keras.Model, optimizer: tf.keras.optimizers,
                  metrics: List[tf.keras.metrics.Mean],
-                 lossFunc: Callable[tf.Tensor, tf.Tensor, tf.Tensor],
-                 PSNRFunc: Callable[tf.Tensor, tf.Tensor, tf.Tensor],
+                 lossFunc,
+                 PSNRFunc,
                  X: np.ma.array, y: np.ma.array,
                  batchSize: int, epochs: int, bufferSize: int,
                  valData: List[np.ma.array], valSteps: int,
                  checkpoint: tf.train.Checkpoint, checkpointManager: tf.train.CheckpointManager,
                  logDir: str, ckptDir: str, saveBestOnly: bool):
 
-    trainSet = loadTrainDataAsTFDataSet(X, y, epochs, batchSize, bufferSize)
-    valSet = loadValDataAsTFDataSet(valData[0], valData[1], valSteps, batchSize, bufferSize)
+    trainSet = loadTrainDataAsTFDataSet(X, y[0], y[1], epochs, batchSize, bufferSize)
+    valSet = loadValDataAsTFDataSet(valData[0], valData[1], valData[2], valSteps, batchSize, bufferSize)
 
     # Logger
     w = tf.summary.create_file_writer(logDir)
@@ -161,14 +161,14 @@ def fitTrainData(model: tf.keras.Model, optimizer: tf.keras.optimizers,
 
 
 @tf.function
-def trainStep(patchLR, patchHR, maskHR, checkpoint, loss, metric, trainLoss, trainPSNR):
+def trainStep(patchLR, patchHR, maskHR, model, optimizer, loss, metric, trainLoss, trainPSNR):
     with tf.GradientTape() as tape:
 
-        predPatchHR = checkpoint.model(patchLR, training=True)
+        predPatchHR = model(patchLR, training=True)
         loss = loss(patchHR, maskHR, predPatchHR)  # Loss(patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor)
 
-    gradients = tape.gradient(loss, checkpoint.model.trainable_variables)
-    checkpoint.optimizer.apply_gradients(zip(gradients, checkpoint.model.trainable_variables))
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
     metric = metric(patchHR, maskHR, predPatchHR)
     trainLoss(loss)
@@ -176,8 +176,8 @@ def trainStep(patchLR, patchHR, maskHR, checkpoint, loss, metric, trainLoss, tra
 
 
 @tf.function
-def testStep(patchLR, patchHR, maskHR, checkpoint, loss, metric, testLoss, testPSNR):
-    sr = checkpoint.model(patchLR, training=False)
+def testStep(patchLR, patchHR, maskHR, model, optimizer, loss, metric, testLoss, testPSNR):
+    predPatchHR = checkpoint.model(patchLR, training=False)
     loss = loss(patchHR, maskHR, predPatchHR)
     metric = metric(patchHR, maskHR, predPatchHR)
 
