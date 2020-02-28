@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow_addons.layers import WeightNormalization
+from tensorflow_addons.layers import WeightNormalization, InstanceNormalization
 from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Conv3D, Conv2D, Lambda, Add, Reshape
 
@@ -15,7 +15,8 @@ def WDSRConv3D(scale: int, numFilters: int, kernelSize: tuple,
         else Input(shape=(patchSizeLR, patchSizeLR, numImgLR, 3))
 
     # Get mean of instance mean patch and over all mean pixel value
-    imgLR = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]], mode='reflect'), name='initPad')(imgLRIn)
+    imgLR = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],
+                                    mode='reflect'), name='initPad')(imgLRIn)
     meanImgLR = Lambda(lambda x: tf.reduce_mean(x, axis=3, name='meanLR'), name='getMeanLR')(imgLR)
     #allMean = Lambda(lambda x: tf.reduce_mean(x, name='allMean'), name='getAllMean')(imgLR)
     #allStdDev = Lambda(lambda x: tf.math.reduce_std(x, name='allStdDev'), name='getAllStdDev')(imgLR)
@@ -43,7 +44,8 @@ def WDSRConv3D(scale: int, numFilters: int, kernelSize: tuple,
 
 def WDSRNetResidualPath(meanImgLR: tf.Tensor, kernelSize: tuple, scale: int):
     x = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT'), name='padResid')(meanImgLR)
-    x = weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize, padding='valid', activation='relu', name='residConv1')(x)
+    x = weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize,
+                           padding='valid', activation='relu', name='residConv1')(x)
     x = weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize, padding='valid', name='residConv2')(x)
     x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsResid')(x)
     return x
@@ -65,7 +67,8 @@ def WDSRNetMainPath(imgLR: tf.Tensor, numFilters: int, kernelSize: tuple,
 def ConvReduceAndUpscale(x: tf.Tensor, numImgLR: int, scale: int, numFilters: int, kernelSize: tuple):
     # Conv Reducer
     for i in range(numImgLR//scale):
-        x = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]], mode='reflect'), name=f'convReducePad_{i}')(x)
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],
+                                    mode='reflect'), name=f'convReducePad_{i}')(x)
         x = weightNormedConv3D(numFilters, kernelSize, padding='valid', activation='relu', name=f'convReducer_{i}')(x)
     # Upscale block
     x = weightNormedConv3D(outChannels=scale*scale, kernelSize=kernelSize, padding='valid', name='upscaleConv')(x)
@@ -74,11 +77,14 @@ def ConvReduceAndUpscale(x: tf.Tensor, numImgLR: int, scale: int, numFilters: in
 
 def ResConv3D(xIn: tf.Tensor, numFilters: int, expRate: int, decayRate: float, kernelSize: int, blockNum: int):
     # Expansion Conv3d | Same padding
-    x = weightNormedConv3D(outChannels=numFilters*expRate, kernelSize=1, padding='same', activation='relu', name=f'expConv_{blockNum}')(xIn)
+    x = weightNormedConv3D(outChannels=numFilters*expRate, kernelSize=1, padding='same',
+                           activation='relu', name=f'expConv_{blockNum}')(xIn)
     # Decay Conv3d | Same padding
-    x = weightNormedConv3D(outChannels=int(numFilters*decayRate), kernelSize=1, padding='same', name=f'decConv_{blockNum}')(x)
+    x = weightNormedConv3D(outChannels=int(numFilters*decayRate), kernelSize=1,
+                           padding='same', name=f'decConv_{blockNum}')(x)
     # Norm Conv3D | Same padding
-    x = weightNormedConv3D(outChannels=numFilters, kernelSize=kernelSize, padding='same', name=f'normConv_{blockNum}')(x)
+    x = weightNormedConv3D(outChannels=numFilters, kernelSize=kernelSize,
+                           padding='same', name=f'normConv_{blockNum}')(x)
     # Add input and result
     out = Add(name=f'AddResConv_{blockNum}')([x, xIn])
     return out
@@ -93,8 +99,10 @@ def weightNormedConv2D(outChannels: int, kernelSize: int, padding: str, activati
     return WeightNormalization(Conv2D(outChannels, kernelSize, padding=padding, activation=activation),
                                data_init=False, name=name)
 
+
 def normalize(x):
     return (x-MEAN)/STD
 
+
 def denormalize(x):
-    return x * STD + MEAN 
+    return x * STD + MEAN

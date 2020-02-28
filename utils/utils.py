@@ -14,11 +14,11 @@ def samePaddingForConv3d(inputSize: Tuple[int], kernelSize: Tuple[int], stride: 
     return padding
 
 
-def loadTrainDataAsTFDataSet(X, y, epochs, batchSize, bufferSize):
+def loadTrainDataAsTFDataSet(X, y, y_mask, epochs, batchSize, bufferSize):
     return tf.data.Dataset.from_tensor_slices(
-        (X, y, y.mask)).shuffle(bufferSize, reshuffle_each_iteration=True).repeat(epochs).batch(batchSize).prefetch(tf.data.experimental.AUTOTUNE)
+        (X, y, y_mask)).shuffle(bufferSize, reshuffle_each_iteration=True).repeat(epochs).batch(batchSize).prefetch(tf.data.experimental.AUTOTUNE)
 
 
-def loadValDataAsTFDataSet(X, y, valSteps, batchSize, bufferSize):
+def loadValDataAsTFDataSet(X, y, y_mask, valSteps, batchSize, bufferSize):
     return tf.data.Dataset.from_tensor_slices(
-        (X, y, y.mask)).shuffle(bufferSize).batch(batchSize).prefetch(tf.data.experimental.AUTOTUNE).take(valSteps)
+        (X, y, y_mask)).shuffle(bufferSize).batch(batchSize).prefetch(tf.data.experimental.AUTOTUNE).take(valSteps)
