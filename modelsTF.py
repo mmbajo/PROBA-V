@@ -4,7 +4,7 @@ from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Conv3D, Conv2D, Lambda, Add, Reshape
 
 MEAN = 7433.6436
-STD = 2353.0723
+STD = 5051.3159
 
 
 def WDSRConv3D(scale: int, numFilters: int, kernelSize: tuple,
@@ -18,8 +18,6 @@ def WDSRConv3D(scale: int, numFilters: int, kernelSize: tuple,
     imgLR = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],
                                     mode='reflect'), name='initPad')(imgLRIn)
     meanImgLR = Lambda(lambda x: tf.reduce_mean(x, axis=3, name='meanLR'), name='getMeanLR')(imgLR)
-    #allMean = Lambda(lambda x: tf.reduce_mean(x, name='allMean'), name='getAllMean')(imgLR)
-    #allStdDev = Lambda(lambda x: tf.math.reduce_std(x, name='allStdDev'), name='getAllStdDev')(imgLR)
 
     # Normalize Instance
     imgLR = Lambda(normalize, name='normImgLR')(imgLR)

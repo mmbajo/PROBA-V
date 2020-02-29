@@ -22,7 +22,7 @@ class ModelTrainer:
     ValueError: Creating variables on a non-first call to a function decorated with tf.function.
     """
 
-    def __init__(self, model, loss, metric, optimizer, ckptDir, logDir, evalStep=100):
+    def __init__(self, model, loss, metric, optimizer, ckptDir, logDir, evalStep=10):
 
         # Safety checks
         if not os.path.exists(ckptDir):
