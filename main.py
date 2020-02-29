@@ -19,7 +19,7 @@ def main():
 
     # import data
     CLEAN_DATA_DIR = '/home/mark/DataBank/PROBA-V-CHKPT/augmentedPatchesDir'
-    band = 'NIR'
+    band = 'RED'
     X = np.load(os.path.join(CLEAN_DATA_DIR, f'TRAINpatchesLR_{band}.npy'), allow_pickle=True)
     y = np.load(os.path.join(CLEAN_DATA_DIR, f'TRAINpatchesHR_{band}.npy'), allow_pickle=True)
 
@@ -37,10 +37,12 @@ def main():
                               loss=l.shiftCompensatedL1Loss,
                               metric=l.shiftCompensatedcPSNR,
                               optimizer=Nadam(learning_rate=5e-4),
-                              ckptDir='/home/mark/DataBank/ckptNew',
-                              logDir='/home/mark/DataBank/logNew')
+                              ckptDir='/home/mark/DataBank/ckptNewRed',
+                              logDir='/home/mark/DataBank/logNewRed')
+    del X
     gc.collect()
-    trainClass.fitTrainData(X_train, y, 64, 10, 512, valData, 1)
+
+    trainClass.fitTrainData(X_train, y, 64, 2, 512, valData, 1)
 
 
 if __name__ == '__main__':

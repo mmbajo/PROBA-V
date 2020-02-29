@@ -24,6 +24,7 @@ DEBUG = 0
 # Download data at https://kelvins.esa.int/proba-v-super-resolution/data/
 DATA_BANK_DIRECTORY = '/home/mark/DataBank/probav_data/'
 DATA_BANK_DIRECTORY_PREPROCESSING_CHKPT = '/home/mark/DataBank/PROBA-V-CHKPT'
+LOSS_CROP_BORDER = 3
 
 
 def parser():
@@ -33,9 +34,11 @@ def parser():
     parser.add_argument('--ckptdir', default='/home/mark/DataBank/PROBA-V-CHKPT', type=str)
     parser.add_argument('--numTopClearest', type=int, default=9)
     parser.add_argument('--patchSizeLR', type=int, default=32)
-    parser.add_argument('--patchStrideLR', type=int, default=16)
+    parser.add_argument('--patchStrideLR', type=int, default=32)
     parser.add_argument('--clarityThresholdLR', type=float, default=0.7)
     parser.add_argument('--clarityThresholdHR', type=float, default=0.85)
+    parser.add_argument('--numPermute', type=int, default=3)
+    parser.add_argument('--toPad', type=bool, default=False)
     parser.add_argument('--ckpt', type=int, nargs='+', default=[1, 2, 3, 4, 5])
     opt = parser.parse_args()
     return opt
@@ -106,13 +109,20 @@ def main():
 
     # CHECKPOINT 3 - PATCH GENERATION
     if 3 in opt.ckpt:
-
         # Generate patches
         logging.info(f'Loading TEST {band} LR patch dataset...')
         trmImgMskLRTest = np.load(os.path.join(trimmedArrayDir, f'TESTimgLR_{band}.npy'), allow_pickle=True)
         logging.info(f'Generating TEST {band} LR Patches...')
         numImgSet, numImgPerImgSet, C, _, _ = trmImgMskLRTest.shape
-        patchesLR = generatePatches(trmImgMskLRTest, patchSize=opt.patchSizeLR, stride=opt.patchSizeLR)
+        # padding with size of Loss Crop cropBorder
+        if opt.toPad:
+            paddings = [[0, 0], [0, 0], [0, 0], [LOSS_CROP_BORDER,
+                                                 LOSS_CROP_BORDER], [LOSS_CROP_BORDER, LOSS_CROP_BORDER]]
+            trmImgMskLRTest = np.pad(trmImgMskLRTest, paddings, 'symmetric')
+            MAX_SHIFT = 2 * LOSS_CROP_BORDER
+        else:
+            MAX_SHIFT = 0
+        patchesLR = generatePatches(trmImgMskLRTest, patchSize=opt.patchSizeLR + MAX_SHIFT, stride=opt.patchSizeLR)
         patchesLR = patchesLR.reshape((numImgSet, -1, numImgPerImgSet, C, opt.patchSizeLR, opt.patchSizeLR))
         logging.info(f'Saving {band} LR Patches...')
         patchesLR.dump(os.path.join(patchesDir, f'TESTpatchesLR_{band}.npy'), protocol=4)
@@ -124,7 +134,14 @@ def main():
         trmImgMskLR = np.load(os.path.join(trimmedArrayDir, f'TRAINimgLR_{band}.npy'), allow_pickle=True)
         logging.info(f'Generating TRAIN {band} LR Patches...')
         numImgSet, numImgPerImgSet, C, H, W = trmImgMskLR.shape
-        patchesLR = generatePatches(trmImgMskLR, patchSize=opt.patchSizeLR, stride=opt.patchStrideLR)
+        if opt.toPad:
+            paddings = [[0, 0], [0, 0], [0, 0], [LOSS_CROP_BORDER,
+                                                 LOSS_CROP_BORDER], [LOSS_CROP_BORDER, LOSS_CROP_BORDER]]
+            trmImgMskLR = np.pad(trmImgMskLR, paddings, 'symmetric')
+            MAX_SHIFT = 2 * LOSS_CROP_BORDER
+        else:
+            MAX_SHIFT = 0
+        patchesLR = generatePatches(trmImgMskLR, patchSize=opt.patchSizeLR + MAX_SHIFT, stride=opt.patchStrideLR)
         patchesLR = patchesLR.reshape((numImgSet, -1, numImgPerImgSet, C, opt.patchSizeLR, opt.patchSizeLR))
         logging.info(f'Saving {band} LR Patches...')
         patchesLR.dump(os.path.join(patchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
@@ -175,18 +192,20 @@ def main():
     # CHECKPOINT 5 - AUGMENTING PATCHES
     if 5 in opt.ckpt:
         logging.info(f'Loading {band} train LR Patches...')
-        trmPatchesLR = np.load(os.path.join(trimmedPatchesDir, f'TRAINpatchesLR_{band}.npy'), allow_pickle=True)
-        logging.info(f'augmentByShuffling {band} train LR Patches...')
-        augmentedPatchesLR = augmentPatches(trmPatchesLR)
+        augmentedPatchesLR = np.load(os.path.join(trimmedPatchesDir, f'TRAINpatchesLR_{band}.npy'), allow_pickle=True)
+        augmentedPatchesLR = augmentByShufflingLRImgs(augmentedPatchesLR, numPermute=opt.numPermute)
+        logging.info(f'Augmenting by flipping {band} train LR Patches...')
+        augmentedPatchesLR = augmentByFlipping(augmentedPatchesLR)
         logging.info(f'Saving {band} train LR Patches...')
         augmentedPatchesLR.dump(os.path.join(augmentedPatchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
         del augmentedPatchesLR
         gc.collect()
 
         logging.info(f'Loading {band} train HR Patches...')
-        trmPatchesHR = np.load(os.path.join(trimmedPatchesDir, f'TRAINpatchesHR_{band}.npy'), allow_pickle=True)
-        logging.info(f'augmentByShuffling {band} train HR Patches...')
-        augmentedPatchesHR = augmentPatches(trmPatchesHR)
+        augmentedPatchesHR = np.load(os.path.join(trimmedPatchesDir, f'TRAINpatchesHR_{band}.npy'), allow_pickle=True)
+        augmentedPatchesHR = np.tile(augmentedPatchesHR, (opt.numPermute + 1, 1, 1, 1))
+        logging.info(f'Augmenting by flipping {band} train HR Patches...')
+        augmentedPatchesHR = augmentByFlipping(augmentedPatchesHR)
         logging.info(f'Saving {band} train HR Patches...')
         augmentedPatchesHR.dump(os.path.join(augmentedPatchesDir, f'TRAINpatchesHR_{band}.npy'), protocol=4)
         del augmentedPatchesHR
@@ -197,15 +216,20 @@ def augmentByRICAP():
     pass
 
 
-def augmentByShuffling():
-    pass
+def augmentByShufflingLRImgs(patchLR: np.ma.masked_array, numPermute=9):
+    # shape is (numImgSet, H, W, numLRImg, C)
+    # (numImgSet, H, W, C)
+    numImgSet, H, W, numLRImg, C = patchLR.shape
+    cacheLR = [patchLR]
+    for _ in range(numPermute):
+        idx = np.random.permutation(np.arange(numLRImg))
+        shuffled = patchLR[:, :, :, idx, :]
+        cacheLR.append(shuffled)
+    patchLR = np.concatenate(cacheLR)
+    return patchLR
 
 
-def shufflePatchSetAndAdd():
-    pass
-
-
-def augmentPatches(patches: np.ma.masked_array):
+def augmentByFlipping(patches: np.ma.masked_array):
     img90 = np.rot90(patches, k=1, axes=(1, 2))
     img180 = np.rot90(patches, k=2, axes=(1, 2))
     img270 = np.rot90(patches, k=3, axes=(1, 2))
@@ -464,7 +488,7 @@ def registerFrame(img: np.ndarray, msk: np.ndarray, referenceImg: np.ndarray, te
     regImg: np.ndarray[channel, height, width]
     regMsk: np.ndarray[channel, height, width]
     '''
-    if tech == 'trans':
+    if tech == 'time':
         shiftArray = masked_register_translation(referenceImg, img, msk)
         regImg = shift(img, shiftArray, mode='reflect')
         regMsk = shift(msk, shiftArray, mode='constant', cval=0)

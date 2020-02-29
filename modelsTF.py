@@ -45,7 +45,8 @@ def WDSRNetResidualPath(meanImgLR: tf.Tensor, kernelSize: tuple, scale: int):
     x = weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize,
                            padding='valid', activation='relu', name='residConv1')(x)
     x = weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize, padding='valid', name='residConv2')(x)
-    x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsResid')(x)
+    #  See https://arxiv.org/abs/1609.05158
+    x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsResid')(x)  # Pixel Shuffle!
     return x
 
 
@@ -58,7 +59,8 @@ def WDSRNetMainPath(imgLR: tf.Tensor, numFilters: int, kernelSize: tuple,
 
     x = ConvReduceAndUpscale(x, numImgLR, scale, numFilters, kernelSize)
     x = Reshape((patchSizeLR, patchSizeLR, scale*scale), name='reshapeMain')(x)
-    x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsMain')(x)
+    #  See https://arxiv.org/abs/1609.05158
+    x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsMain')(x)  # Pixel Shuffle!
     return x
 
 

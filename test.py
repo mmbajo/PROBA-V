@@ -14,17 +14,17 @@ logger = logging.getLogger('__name__')
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--images', type=str)
-    parser.add_argument('--modelckpt', type=str)
-    parser.add_argument('--output', type=str)
-    parser.add_argument('--band', type=str)
+    parser.add_argument('--images', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/patchesDir')
+    parser.add_argument('--modelckpt', type=str, default='/home/mark/DataBank/ckptNewRed')
+    parser.add_argument('--output', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/testout')
+    parser.add_argument('--band', type=str, default='RED')
     opt = parser.parse_args()
     return opt
 
 
 def main():
     X = np.load(os.path.join(opt.images, f'TESTpatchesLR_{opt.band}.npy'), allow_pickle=True)
-
+    X = X.transpose((0, 1, 4, 5, 2, 3))
     model = WDSRConv3D(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=8,
                        expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=32, isGrayScale=True)
 
@@ -37,13 +37,16 @@ def main():
                                           max_to_keep=5)
 
     ckpt.restore(ckptMngr.latest_checkpoint)
-    y_preds = evaluate(model, X_test_patches, X_test_merged_patches)
+    y_preds = evaluate(model, X)
 
-    band = band.upper()
+    band = opt.band.upper()
     if band == 'NIR':
         i = 1306
     elif band == 'RED':
         i = 1160
+
+    if not os.path.exists(opt.output):
+        os.makedirs(opt.output)
 
     logging.info(f'Saving predicted images to {opt.output}')
     for img in tqdm(y_preds):
@@ -54,9 +57,9 @@ def main():
 def evaluate(model, X_test_patches):
     y_preds = []
 
-    for i in tqdm(range(0, X_test_patches.shape[0], 16)):
+    for i in tqdm(range(0, X_test_patches.shape[0])):
         # Resolve
-        res_patches = resolve(model, np.expand_dims(X_test_patches[i:i+16], 4))
+        res_patches = resolve(model, X_test_patches[i])
         y_pred = reconstruct_from_patches(np.array(res_patches))
         y_preds.append(y_pred)
     return y_preds

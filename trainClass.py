@@ -36,7 +36,7 @@ class ModelTrainer:
                                         model=model)
         self.ckptMngr = tf.train.CheckpointManager(checkpoint=self.ckpt,
                                                    directory=ckptDir,
-                                                   max_to_keep=5)
+                                                   max_to_keep=20)
         self.loss = loss
         self.metric = metric
         self.logDir = logDir
@@ -61,10 +61,11 @@ class ModelTrainer:
                      batchSize: int, epochs: int, bufferSize: int,
                      valData: List[np.ma.array], valSteps: int,
                      saveBestOnly: bool = True, initEpoch: int = 0):
-
+        logger.info('[ INFO ] Loading data set...')
         trainSet = loadTrainDataAsTFDataSet(X, y[0], y[1], epochs, batchSize, bufferSize)
         valSet = loadValDataAsTFDataSet(valData[0], valData[1], valData[2], valSteps, batchSize, bufferSize)
-        # Logger
+        logger.info('[ INFO ] Loading success...')
+
         w = tf.summary.create_file_writer(self.logDir)
 
         dataSetLength = len(X)
@@ -73,12 +74,13 @@ class ModelTrainer:
         step = globalStep % totalSteps
         epoch = initEpoch
 
+        logger.info('[ INFO ] Begin training...')
         with w.as_default():
             for x_batch_train, y_batch_train, y_mask_batch_train in trainSet:
                 if (totalSteps - step) == 0:
                     epoch += 1
                     step = tf.cast(self.ckpt.step, tf.int64) % totalSteps
-                    logger.info('Start of epoch %d' % (epoch))
+                    logger.info('[ INFO ] Start of epoch %d' % (epoch))
                     # Reset metrics
                     self.trainLoss.reset_states()
                     self.trainPSNR.reset_states()
@@ -90,7 +92,7 @@ class ModelTrainer:
                 self.trainStep(x_batch_train, y_batch_train, y_mask_batch_train)
                 self.ckpt.step.assign_add(1)
 
-                t = f"step {step}/{int(totalSteps)}, loss: {self.trainLoss.result():.3f}, psnr: {self.trainPSNR.result():.3f}"
+                t = f"[ INFO ] step {step}/{int(totalSteps)}, loss: {self.trainLoss.result():.3f}, psnr: {self.trainPSNR.result():.3f}"
                 logger.info(t)
 
                 tf.summary.scalar('Train PSNR', self.trainPSNR.result(), step=globalStep)
@@ -106,13 +108,14 @@ class ModelTrainer:
                         'Test loss', self.testLoss.result(), step=globalStep)
                     tf.summary.scalar(
                         'Test PSNR', self.testPSNR.result(), step=globalStep)
-                    t = f"Validation results... val_loss: {self.testLoss.result():.3f}, val_psnr: {self.testPSNR.result():.3f}"
+                    t = f"[ INFO ] Validation results... val_loss: {self.testLoss.result():.3f}, val_psnr: {self.testPSNR.result():.3f}"
                     logger.info(t)
                     w.flush()
 
                     if saveBestOnly and (self.testPSNR.result() <= self.ckpt.psnr):
                         continue
 
+                    logger.info('[ INFO ] Saving checkpoint...')
                     self.ckpt.psnr = self.testPSNR.result()
                     self.ckptMngr.save()
 
