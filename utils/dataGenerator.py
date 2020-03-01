@@ -118,12 +118,15 @@ def main():
         if opt.toPad:
             paddings = [[0, 0], [0, 0], [0, 0], [LOSS_CROP_BORDER,
                                                  LOSS_CROP_BORDER], [LOSS_CROP_BORDER, LOSS_CROP_BORDER]]
-            trmImgMskLRTest = np.pad(trmImgMskLRTest, paddings, 'symmetric')
+            trmImgLRTest = np.pad(trmImgMskLRTest, paddings, 'symmetric')
+            trmMskLRTest = np.pad(trmImgMskLRTest.mask, paddings, 'symmetric')
+            trmImgMskLRTest = np.ma.masked_array(trmImgLRTest, mask=trmMskLRTest)
             MAX_SHIFT = 2 * LOSS_CROP_BORDER
         else:
             MAX_SHIFT = 0
         patchesLR = generatePatches(trmImgMskLRTest, patchSize=opt.patchSizeLR + MAX_SHIFT, stride=opt.patchSizeLR)
-        patchesLR = patchesLR.reshape((numImgSet, -1, numImgPerImgSet, C, opt.patchSizeLR, opt.patchSizeLR))
+        patchesLR = patchesLR.reshape((numImgSet, -1, numImgPerImgSet, C,
+                                       opt.patchSizeLR + MAX_SHIFT, opt.patchSizeLR + MAX_SHIFT))
         logging.info(f'Saving {band} LR Patches...')
         patchesLR.dump(os.path.join(patchesDir, f'TESTpatchesLR_{band}.npy'), protocol=4)
         del trmImgMskLRTest
@@ -137,12 +140,15 @@ def main():
         if opt.toPad:
             paddings = [[0, 0], [0, 0], [0, 0], [LOSS_CROP_BORDER,
                                                  LOSS_CROP_BORDER], [LOSS_CROP_BORDER, LOSS_CROP_BORDER]]
-            trmImgMskLR = np.pad(trmImgMskLR, paddings, 'symmetric')
+            trmImgLR = np.pad(trmImgMskLR, paddings, 'symmetric')
+            trmMskLR = np.pad(trmImgMskLR.mask, paddings, 'symmetric')
+            trmImgMskLR = np.ma.masked_array(trmImgLR, mask=trmMskLR)
             MAX_SHIFT = 2 * LOSS_CROP_BORDER
         else:
             MAX_SHIFT = 0
         patchesLR = generatePatches(trmImgMskLR, patchSize=opt.patchSizeLR + MAX_SHIFT, stride=opt.patchStrideLR)
-        patchesLR = patchesLR.reshape((numImgSet, -1, numImgPerImgSet, C, opt.patchSizeLR, opt.patchSizeLR))
+        patchesLR = patchesLR.reshape((numImgSet, -1, numImgPerImgSet, C,
+                                       opt.patchSizeLR + MAX_SHIFT, opt.patchSizeLR + MAX_SHIFT))
         logging.info(f'Saving {band} LR Patches...')
         patchesLR.dump(os.path.join(patchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
         del trmImgMskLR

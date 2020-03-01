@@ -22,3 +22,8 @@ def loadTrainDataAsTFDataSet(X, y, y_mask, epochs, batchSize, bufferSize):
 def loadValDataAsTFDataSet(X, y, y_mask, valSteps, batchSize, bufferSize):
     return tf.data.Dataset.from_tensor_slices(
         (X, y, y_mask)).shuffle(bufferSize).batch(batchSize).prefetch(tf.data.experimental.AUTOTUNE).take(valSteps)
+
+
+def cropImage(imgBatch: tf.Tensor, startIdxH: int, lengthHeight: int,
+              startIdxW: int, lengthWidth: int) -> tf.Tensor:
+    return tf.cast(imgBatch[:, startIdxH: startIdxH + lengthHeight, startIdxW: startIdxW + lengthWidth, :], tf.float32)

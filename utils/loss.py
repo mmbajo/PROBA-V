@@ -1,6 +1,7 @@
 from typing import List
 
 import tensorflow as tf
+from utils.utils import cropImage
 
 
 class Losses:
@@ -127,10 +128,6 @@ class Losses:
 
     def computecPSNR(self, totalClearPixels, HR, correctedSR):
         loss = self.computeL2Loss(totalClearPixels, HR, correctedSR)
+        # Normalized with respect to bit depth
         cPSNR = 10.0 * (tf.math.log(self.numBytes**2/loss) / tf.math.log(tf.constant(10, dtype=tf.float32)))
         return cPSNR
-
-
-def cropImage(imgBatch: tf.Tensor, startIdxH: int, lengthHeight: int,
-              startIdxW: int, lengthWidth: int) -> tf.Tensor:
-    return tf.cast(imgBatch[:, startIdxH: startIdxH + lengthHeight, startIdxW: startIdxW + lengthWidth, :], tf.float32)

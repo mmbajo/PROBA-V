@@ -4,7 +4,8 @@ import tensorflow as tf
 import numpy as np
 from skimage import io
 from tqdm import tqdm
-from modelsTF import *
+from modelsTF import WDSRConv3D
+from utils.utils import *
 
 import logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
@@ -15,29 +16,38 @@ logger = logging.getLogger('__name__')
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--images', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/patchesDir')
-    parser.add_argument('--modelckpt', type=str, default='/home/mark/DataBank/ckptNewRed')
-    parser.add_argument('--output', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/testout')
+    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt')
+    parser.add_argument('--output', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/testout_patch38')
     parser.add_argument('--band', type=str, default='RED')
     opt = parser.parse_args()
     return opt
 
 
 def main():
-    X = np.load(os.path.join(opt.images, f'TESTpatchesLR_{opt.band}.npy'), allow_pickle=True)
-    X = X.transpose((0, 1, 4, 5, 2, 3))
-    model = WDSRConv3D(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=8,
-                       expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=32, isGrayScale=True)
+    logger.info('[ INFO ] Loading data...')
+    patchLR = np.load(os.path.join(opt.images, f'TESTpatchesLR_{opt.band}.npy'), allow_pickle=True)
+    patchLR = patchLR.transpose((0, 1, 4, 5, 2, 3))
+
+    datasetAllMean = 8818.0603
+    datasetAllStd = 6534.1132
+
+    logger.info('[ INFO ] Instantiate model...')
+    modelIns = WDSRConv3D(name='patch38', band=opt.band, mean=datasetAllMean, std=datasetAllStd, maxShift=6)
+    logger.info('[ INFO ] Building model...')
+    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=8,
+                           expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=38, isGrayScale=True)
 
     ckpt = tf.train.Checkpoint(step=tf.Variable(0),
                                psnr=tf.Variable(1.0),
                                model=model)
-
+    ckptDir = os.path.join(opt.modelckpt, opt.band)
     ckptMngr = tf.train.CheckpointManager(checkpoint=ckpt,
-                                          directory=opt.modelckpt,
-                                          max_to_keep=5)
+                                          directory=ckptDir,
+                                          max_to_keep=20)
 
     ckpt.restore(ckptMngr.latest_checkpoint)
-    y_preds = evaluate(model, X)
+    logger.info('[ INFO ] Generating predictions...')
+    y_preds = evaluate(model, patchLR)
 
     band = opt.band.upper()
     if band == 'NIR':
@@ -48,7 +58,7 @@ def main():
     if not os.path.exists(opt.output):
         os.makedirs(opt.output)
 
-    logging.info(f'Saving predicted images to {opt.output}')
+    logging.info(f'[ SAVE ] Saving predicted images to {opt.output}...')
     for img in tqdm(y_preds):
         io.imsave(os.path.join(opt.output, f'imgset{i}.png'), img[:, :, 0].astype(np.uint16))
         i += 1

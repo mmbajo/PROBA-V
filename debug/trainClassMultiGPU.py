@@ -22,7 +22,7 @@ class ModelTrainer:
     ValueError: Creating variables on a non-first call to a function decorated with tf.function.
     """
 
-    def __init__(self, model, loss, metric, optimizer, ckptDir, logDir, multiGPU=True, evalStep=1000):
+    def __init__(self, model, loss, metric, optimizer, ckptDir, logDir, strategy, multiGPU=True, evalStep=10):
 
         # Safety checks
         if not os.path.exists(ckptDir):
@@ -46,7 +46,7 @@ class ModelTrainer:
         self.testPSNR = Mean(name='testPSNR')
         self.evalStep = evalStep
         self.multiGPU = multiGPU
-        self.strategy = None
+        self.strategy = strategy
         self.restore()
 
     @property
@@ -60,15 +60,28 @@ class ModelTrainer:
 
     def fitTrainData(self,
                      X: tf.Tensor, y: tf.Tensor,
-                     globalBatchSize: int, epochs: int,
+                     batchSize: int, epochs: int,
                      valData: List[np.ma.array],
-                     bufferSize: int = 512, valSteps: int = 64,
+                     bufferSize: int = 256, valSteps: int = 128,
                      saveBestOnly: bool = True, initEpoch: int = 0):
+        if self.multiGPU:
+            logger.info('[ INFO ] Multi-GPU mode selected...')
+            logger.info('[ INFO ] Instantiate strategy...')
+            batchSizePerReplica = batchSize
+            globalBatchSize = batchSizePerReplica * self.strategy.num_replicas_in_sync
+        else:
+            globalBatchSize = batchSize
 
         logger.info('[ INFO ] Loading data set to buffer cache...')
         trainSet = loadTrainDataAsTFDataSet(X, y[0], y[1], epochs, globalBatchSize, bufferSize)
         valSet = loadValDataAsTFDataSet(valData[0], valData[1], valData[2], valSteps, globalBatchSize, bufferSize)
         logger.info('[ INFO ] Loading success...')
+
+        if self.multiGPU:
+            logger.info('[ INFO ] Distributing train set...')
+            trainSet = self.strategy.experimental_distribute_dataset(trainSet)
+            logger.info('[ INFO ] Distributing test set...')
+            valSet = self.strategy.experimental_distribute_dataset(valSet)
 
         w = tf.summary.create_file_writer(self.logDir)
 
@@ -93,10 +106,10 @@ class ModelTrainer:
 
                 step += 1
                 globalStep += 1
-                self.trainStep(x_batch_train, y_batch_train, y_mask_batch_train)
+                self.trainDistStep(x_batch_train, y_batch_train, y_mask_batch_train)
                 self.ckpt.step.assign_add(1)
 
-                t = f"[ EPOCH {epoch}/{epochs} ] - [STEP {step}/{int(totalSteps)}] Loss: {self.trainLoss.result():.3f}, cPSNR: {self.trainPSNR.result():.3f}"
+                t = f"[ EPOCH {epoch}/{epochs} ] Step {step}/{int(totalSteps)}, Loss: {self.trainLoss.result():.3f}, cPSNR: {self.trainPSNR.result():.3f}"
                 logger.info(t)
 
                 tf.summary.scalar('Train PSNR', self.trainPSNR.result(), step=globalStep)
@@ -107,7 +120,7 @@ class ModelTrainer:
                     self.testLoss.reset_states()
                     self.testPSNR.reset_states()
                     for x_batch_val, y_batch_val, y_mask_batch_val in valSet:
-                        self.testStep(x_batch_val, y_batch_val, y_mask_batch_val)
+                        self.testDistStep(x_batch_val, y_batch_val, y_mask_batch_val)
                     tf.summary.scalar('Test loss', self.testLoss.result(), step=globalStep)
                     tf.summary.scalar('Test PSNR', self.testPSNR.result(), step=globalStep)
                     t = f"[ VAL INFO ] Validation Loss: {self.testLoss.result():.3f}, Validation PSNR: {self.testPSNR.result():.3f}"
@@ -130,14 +143,32 @@ class ModelTrainer:
 
         gradients = tape.gradient(loss, self.ckpt.model.trainable_variables)
         self.ckpt.optimizer.apply_gradients(zip(gradients, self.ckpt.model.trainable_variables))
-        metric = self.metric(patchHR, maskHR, predPatchHR)
-        self.trainLoss(loss)
-        self.trainPSNR(metric)
+        return loss
 
     @tf.function
     def testStep(self, patchLR, patchHR, maskHR):
         predPatchHR = self.ckpt.model(patchLR, training=False)
         loss = self.loss(patchHR, maskHR, predPatchHR)
-        metric = self.metric(patchHR, maskHR, predPatchHR)
-        self.testLoss(loss)
-        self.testPSNR(metric)
+        return loss
+
+    @tf.function
+    def calcMetric(self, patchLR, patchHR, maskHR):
+        return self.metric(patchHR, maskHR, predPatchHR)
+
+    @tf.function
+    def trainDistStep(self, patchLR, patchHR, maskHR):
+        perExampleLosses = self.strategy.experimental_run_v2(self.trainStep, args=(patchLR, patchHR, maskHR))
+        perExampleMetric = self.strategy.experimental_run_v2(self.calcMetric, args=(patchLR, patchHR, maskHR))
+        meanLoss = self.strategy.reduce(tf.distribute.ReduceOp.MEAN, perExampleLosses, axis=0)
+        meanMetric = self.strategy.reduce(tf.distribute.ReduceOp.MEAN, perExampleMetric, axis=0)
+        self.trainLoss(meanLoss)
+        self.trainPSNR(meanMetric)
+
+    @tf.function
+    def testDistStep(self, patchLR, patchHR, maskHR):
+        perExampleLosses = self.strategy.experimental_run_v2(self.testStep, args=(patchLR, patchHR, maskHR))
+        perExampleMetric = self.strategy.experimental_run_v2(self.calcMetric, args=(patchLR, patchHR, maskHR))
+        meanLoss = self.strategy.reduce(tf.distribute.ReduceOp.MEAN, perExampleLosses, axis=0)
+        meanMetric = self.strategy.reduce(tf.distribute.ReduceOp.MEAN, perExampleMetric, axis=0)
+        self.testLoss(meanLoss)
+        self.testPSNR(meanMetric)
