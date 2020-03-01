@@ -64,18 +64,30 @@ class WDSRConv3D:
         for i in range(numResBlocks):
             x = self.ResConv3D(x, numFilters, expRate, decayRate, kernelSize, i)
 
-        x = self.ConvReduceAndUpscale(x, numImgLR, scale, numFilters, kernelSize)
+        x = self.ConvReduceAndUpscalev2(x, numImgLR, scale, numFilters, kernelSize)
         x = Reshape((patchSizeLR - self.maxShift, patchSizeLR - self.maxShift, scale*scale), name='reshapeMain')(x)
         #  See https://arxiv.org/abs/1609.05158
         x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsMain')(x)  # Pixel Shuffle!
         return x
 
     def ConvReduceAndUpscale(self, x: tf.Tensor, numImgLR: int, scale: int, numFilters: int, kernelSize: tuple):
+        '''used in patch 38 numLRImg 9 config'''
         # Conv Reducer
         for i in range(numImgLR//scale):
             if i == 1:
                 x = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],
                                             mode='reflect'), name=f'convReducePad_{i}')(x)
+            x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                        activation='relu', name=f'convReducer_{i}')(x)
+        # Upscale block
+        x = self.weightNormedConv3D(outChannels=scale*scale, kernelSize=kernelSize,
+                                    padding='valid', name='upscaleConv1')(x)
+        return x
+
+    def ConvReduceAndUpscalev2(self, x: tf.Tensor, numImgLR: int, scale: int, numFilters: int, kernelSize: tuple):
+        '''used in patch 38 numLRImg 7 config'''
+        # Conv Reducer
+        for i in range(numImgLR//scale):
             x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
                                         activation='relu', name=f'convReducer_{i}')(x)
         # Upscale block
