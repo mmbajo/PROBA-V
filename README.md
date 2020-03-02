@@ -12,6 +12,7 @@ tqdm
 ```
 
 ## Usage
+I shall implement an editable config file mechanism in the future. I find it really annoying when I make a typo in command line and not being able to correct it fast.
 ### Preprocessing
 ```sh
 python3 utils/dataGenerator.py --dir probav_data \
@@ -19,6 +20,26 @@ python3 utils/dataGenerator.py --dir probav_data \
                                --band NIR
 
 ```
+### Train
+```sh
+python3 train.py --data dataset/augmentedPatchesDir \
+                 --band NIR \
+                 --split 0.3 \
+                 --batchSize 64 \
+                 --epochs 100 \
+                 --logDir modelInfo/logs \
+                 --ckptDir modelInfo/ckpt \
+                 --optim nadam \
+
+```
+### Test
+```sh
+python3 test.py --data dataset/augmentedPatchesDir \
+                --band NIR \
+                --modelckpt modelInfo/ckpt \
+                --output output
+```
+
 ## The Results
 Here are what I tried. Most of them did not end well. I am still waiting for the result of my submissions. But I believe that my final network achieved good results.
 
