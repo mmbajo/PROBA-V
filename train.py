@@ -27,8 +27,8 @@ def parser():
     parser.add_argument('--split', type=float, default=0.3)
     parser.add_argument('--batchSize', type=int, default=64)
     parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--logDir', type=str, default='modelInfo/logs_38_top7_90p')
-    parser.add_argument('--ckptDir', type=str, default='modelInfo/ckpt_38_top7_90p')
+    parser.add_argument('--logDir', type=str, default='modelInfo/logs_38_top7_90p_10Res')
+    parser.add_argument('--ckptDir', type=str, default='modelInfo/ckpt_38_top7_90p_10Res')
     parser.add_argument('--optim', type=str, default='nadam')
     opt = parser.parse_args()
     return opt
@@ -41,8 +41,12 @@ def main():
     patchLR = np.load(os.path.join(opt.data, f'TRAINpatchesLR_{opt.band}.npy'), allow_pickle=True)
 
     logger.info('[ INFO ] Computing data stats...')
-    datasetAllMean = 8818.0603
-    datasetAllStd = 6534.1132
+    if opt.band == 'NIR':
+        datasetAllMean = 8075.2045  # 8818.0603
+        datasetAllStd = 3160.7272  # 6534.1132
+    else:
+        datasetAllMean = 5266.2245
+        datasetAllStd = 3431.8614
 
     logger.info('[ INFO ] Splitting data...')
     X_train, X_val, y_train, y_val, y_train_mask, y_val_mask = train_test_split(
@@ -65,9 +69,9 @@ def main():
     valData = [X_val, y_val, y_val_mask]
 
     logger.info('[ INFO ] Instantiate model...')
-    modelIns = WDSRConv3D(name='patch38', band=opt.band, mean=datasetAllMean, std=datasetAllStd, maxShift=6)
+    modelIns = WDSRConv3D(name='patch38_12ResBlocks', band=opt.band, mean=datasetAllMean, std=datasetAllStd, maxShift=6)
     logger.info('[ INFO ] Building model...')
-    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=8,
+    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=10,
                            expRate=8, decayRate=0.8, numImgLR=7, patchSizeLR=38, isGrayScale=True)
 
     logger.info(f'[ INFO ] Initialize {opt.optim.upper()} optimizer...')

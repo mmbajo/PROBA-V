@@ -1,8 +1,9 @@
 # PROBA-V
+A solution to the PROBA-V Super Resolution Competition. This solution treats the multiple low resolution images as frames of a 'video' and 3D Convolutional Network to produce a super resolution image from the low resolution ones.
 ## Requirements
 ```python
 torch=1.4
-tensorflow=2.1.0
+tensorflow=2.0.1
 tensorflow-addons=0.5.2
 scikit-image=0.15
 numpy
@@ -18,6 +19,14 @@ python3 utils/dataGenerator.py --dir probav_data \
                                --band NIR
 
 ```
+# Results
+Here are what I tried. Most of them did not end well. I am still waiting for the result of my submissions. But I believe that my final network achieved good results.
+
+| Net           | Data          | Blocks | Filters  | Loss | Normalization |Score |
+| ------------- |:-------------:| -----:| -----:|-----:|-----:|-----:|
+| Conv3D + WDSR    | Patches 32x32 | 8 |32  |L1  | -  |-  |
+| Conv3D + WDSR      | Patches 38x38   |   8 | 32    |L1    | Weight  |-    |
+
 ## Understanding the problem
 The challenge is to restore a low resolution image to a high resolution one. Simple enough?? Let's go!
 

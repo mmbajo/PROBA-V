@@ -3,8 +3,8 @@ from tensorflow_addons.layers import WeightNormalization, InstanceNormalization
 from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Conv3D, Conv2D, Lambda, Add, Reshape
 
-MEAN = 8818.0603
-STD = 6534.1132
+MEAN = 8818.0603   # NIR:8216.2191  # RED: 5376.158
+STD = 6534.1132    # NIR:3751.4718  # RED: 4161.090
 MAX_SHIFT = 6
 
 
