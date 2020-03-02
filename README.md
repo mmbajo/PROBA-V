@@ -19,13 +19,20 @@ python3 utils/dataGenerator.py --dir probav_data \
                                --band NIR
 
 ```
-# Results
+## The Results
 Here are what I tried. Most of them did not end well. I am still waiting for the result of my submissions. But I believe that my final network achieved good results.
 
 | Net           | Data          | Blocks | Filters  | Loss | Normalization |Score |
 | ------------- |:-------------:| -----:| -----:|-----:|-----:|-----:|
 | Conv3D + WDSR    | Patches 32x32 | 8 |32  |L1  | -  |-  |
 | Conv3D + WDSR      | Patches 38x38   |   8 | 32    |L1    | Weight  |-    |
+| Conv3D + WDSR      | Patches 38x38   |   10 | 32    |L1    | Weight  |-    |
+| Conv3D + WDSR      | Augmented Patches 38x38   |   10 | 32    |L1    | Weight  |-    |
+
+## The Model
+* [3DSRnet: Video Super-resolution using 3D Convolutional Neural Networks](https://arxiv.org/abs/1812.09079)
+* [Wide Activation for Efficient and Accurate Image Super-Resolution](https://arxiv.org/abs/1808.08718)
+* [Instance Normalization: The Missing Ingredient for Fast Stylization](https://arxiv.org/abs/1607.08022)
 
 ## Understanding the problem
 The challenge is to restore a low resolution image to a high resolution one. Simple enough?? Let's go!
