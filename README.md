@@ -45,7 +45,7 @@ Here are what I tried. Most of them did not end well. I am still waiting for the
 
 | Net           | Data          | Blocks | Filters  | Loss | Normalization |Score |
 | ------------- |:-------------:| -----:| -----:|-----:|-----:|-----:|
-| Conv3D + WDSR    | Patches 32x32 | 8 |32  |L1  | -  |-  |
+| Conv3D + WDSR    | Patches 32x32 | 8 |32  |L1  | Weight  |-  |
 | Conv3D + WDSR      | Patches 38x38   |   8 | 32    |L1    | Weight  |-    |
 | Conv3D + WDSR      | Patches 38x38   |   10 | 32    |L1    | Weight  |-    |
 | Conv3D + WDSR      | Augmented Patches 38x38   |   10 | 32    |L1    | Weight  |-    |
