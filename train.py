@@ -9,9 +9,9 @@ from tensorflow.keras.metrics import Mean
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam, SGD, Nadam
 
-from modelsTF import WDSRConv3D
-from trainClass import ModelTrainer
-from utils.loss import Losses
+from models.modelsTF import WDSRConv3D
+from models.trainClass import ModelTrainer
+from models.loss import Losses
 from utils.utils import *
 
 import logging

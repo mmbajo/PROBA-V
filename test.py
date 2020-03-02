@@ -5,7 +5,7 @@ import tensorflow as tf
 import numpy as np
 from skimage import io
 from tqdm import tqdm
-from modelsTF import WDSRConv3D
+from models.modelsTF import WDSRConv3D
 from utils.utils import *
 import imageio.core.util
 
