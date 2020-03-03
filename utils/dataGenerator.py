@@ -118,8 +118,8 @@ def main():
         if opt.toPad:
             paddings = [[0, 0], [0, 0], [0, 0], [LOSS_CROP_BORDER,
                                                  LOSS_CROP_BORDER], [LOSS_CROP_BORDER, LOSS_CROP_BORDER]]
-            trmImgLRTest = np.pad(trmImgMskLRTest, paddings, 'symmetric')
-            trmMskLRTest = np.pad(trmImgMskLRTest.mask, paddings, 'symmetric')
+            trmImgLRTest = np.pad(trmImgMskLRTest, paddings, 'reflect')
+            trmMskLRTest = np.pad(trmImgMskLRTest.mask, paddings, 'reflect')
             trmImgMskLRTest = np.ma.masked_array(trmImgLRTest, mask=trmMskLRTest)
             MAX_SHIFT = 2 * LOSS_CROP_BORDER
         else:
