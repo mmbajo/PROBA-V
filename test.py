@@ -24,8 +24,9 @@ imageio.core.util._precision_warn = ignore_warnings
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--images', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/patchesDir')
-    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_38_top7_90p')
-    parser.add_argument('--output', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/TRAINout_patch38_top7_90p')
+    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_38_top7_90p_10Res')
+    parser.add_argument('--output', type=str,
+                        default='/home/mark/DataBank/PROBA-V-CHKPT/trainout_patch38_top7_90p_10res')
     parser.add_argument('--band', type=str, default='RED')
     parser.add_argument('--totest', type=str, default='TEST')
     opt = parser.parse_args()
@@ -37,13 +38,17 @@ def main():
     patchLR = np.load(os.path.join(opt.images, f'{opt.totest}patchesLR_{opt.band}.npy'), allow_pickle=True)
     patchLR = patchLR.transpose((0, 1, 4, 5, 2, 3))
 
-    datasetAllMean = 8818.0603
-    datasetAllStd = 6534.1132
+    if opt.band == 'NIR':
+        datasetAllMean = 8075.2045  # 8818.0603
+        datasetAllStd = 3160.7272  # 6534.1132
+    else:
+        datasetAllMean = 5266.2245
+        datasetAllStd = 3431.8614
 
     logger.info('[ INFO ] Instantiate model...')
     modelIns = WDSRConv3D(name='patch38', band=opt.band, mean=datasetAllMean, std=datasetAllStd, maxShift=6)
     logger.info('[ INFO ] Building model...')
-    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=8,
+    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=10,
                            expRate=8, decayRate=0.8, numImgLR=7, patchSizeLR=38, isGrayScale=True)
 
     ckpt = tf.train.Checkpoint(step=tf.Variable(0),

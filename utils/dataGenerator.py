@@ -35,8 +35,8 @@ def parser():
     parser.add_argument('--numTopClearest', type=int, default=7)
     parser.add_argument('--patchSizeLR', type=int, default=32)  # base patch size is 32
     parser.add_argument('--patchStrideLR', type=int, default=32)
-    parser.add_argument('--clarityThresholdLR', type=float, default=0.9)
-    parser.add_argument('--clarityThresholdHR', type=float, default=0.9)
+    parser.add_argument('--clarityThresholdLR', type=float, default=0.85)
+    parser.add_argument('--clarityThresholdHR', type=float, default=0.85)
     parser.add_argument('--numPermute', type=int, default=9)
     parser.add_argument('--toPad', type=bool, default=False)
     parser.add_argument('--ckpt', type=int, nargs='+', default=[1, 2, 3, 4, 5])
