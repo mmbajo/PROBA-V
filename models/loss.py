@@ -35,8 +35,8 @@ class Losses:
             for j in range(self.maxPixelShift+1):
                 self.stackcPSNR(i, j, patchHR, maskHR, cropPrediction, cachecPSNR)
         cachecPSNR = tf.stack(cachecPSNR)
-        cPSNR = tf.reduce_max(cachecPSNR)
-        return cPSNR
+        cPSNR = tf.reduce_max(cachecPSNR, axis=0)
+        return tf.reduce_mean(cPSNR)
 
     def shiftCompensatedL2Loss(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
         '''
@@ -52,8 +52,8 @@ class Losses:
         for i in range(self.maxPixelShift+1):
             for j in range(self.maxPixelShift+1):
                 self.stackL2Loss(i, j, patchHR, maskHR, cropPrediction, cacheLosses)
-        cacheLosses = tf.stack(cacheLosses)
-        minLoss = tf.reduce_min(cacheLosses)
+        cacheLosses = tf.stack(cacheLosses)  # [49, numBatchSize]
+        minLoss = tf.reduce_min(cacheLosses, axis=0)
         return minLoss
 
     def shiftCompensatedL1Loss(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
@@ -66,7 +66,7 @@ class Losses:
             for j in range(self.maxPixelShift+1):
                 self.stackL1Loss(i, j, patchHR, maskHR, cropPrediction, cacheLosses)
         cacheLosses = tf.stack(cacheLosses)
-        minLoss = tf.reduce_min(cacheLosses)
+        minLoss = tf.reduce_min(cacheLosses, axis=0)
         return minLoss
 
     def stackL1Loss(self, i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):

@@ -1116,8 +1116,7 @@ def generateNormArray(dirList: List[str]):
     np.array of norms from norm.csv
     '''
     csvDir = os.path.join(DATA_BANK_DIRECTORY, 'norm.csv')
-    dataFrame = pd.read_csv(csvDir, sep=' ', header=None)
-    dataFrame.columns(['dataset', 'norm'])
+    dataFrame = pd.read_csv(csvDir, sep=' ', header=None, names=['dataset', 'norm'])
     norm = dataFrame.loc[dataFrame['dataset'].isin(dirList)]['norm'].values
     return norm
 

@@ -27,8 +27,8 @@ def parser():
     parser.add_argument('--split', type=float, default=0.3)
     parser.add_argument('--batchSize', type=int, default=64)
     parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--logDir', type=str, default='modelInfo/logs_38_top7_90p_10Res')
-    parser.add_argument('--ckptDir', type=str, default='modelInfo/ckpt_38_top7_90p_10Res')
+    parser.add_argument('--logDir', type=str, default='modelInfo/logs_38_top7_85p_10Res_corrLoss')
+    parser.add_argument('--ckptDir', type=str, default='modelInfo/ckpt_38_top7_85p_10Res_corrLoss')
     parser.add_argument('--optim', type=str, default='nadam')
     opt = parser.parse_args()
     return opt
