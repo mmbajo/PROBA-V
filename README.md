@@ -76,7 +76,18 @@ The model is based on the well known [WDSR](https://arxiv.org/abs/1808.08718) su
 
 PROBA-V dataset is peculiar since multiple low resolution images are available for predicting the high resolution image. We can view this as the temporal information being available to us. In other words, those low resolution images can be treated as frames of a video and in videos, time one dimension of information.
 
-There is this paper where the researchers used [3D Convolutional Residual Networks](https://arxiv.org/abs/1812.09079) networks to generate super resolution video from low resolution ones.
+There is this paper where the researchers used [3D Convolutional Residual Networks(3DSRnet)](https://arxiv.org/abs/1812.09079) networks to generate super resolution video from low resolution ones. We will use that architecture along with [WDSR](https://arxiv.org/abs/1808.08718) blocks to build our network.
+
+### Residual Conv3D and WDSR Combined
+The proposed architecture in [3DSRnet](https://arxiv.org/abs/1812.09079) is as follows. Like any residual nets, this architecture has a main path and a residual path. We replace the bicubic upsampling block with Weight normalized Conv2D net of the mean of the low resolution images. We replace the 3D-CNN block with multiple [WDSR](https://arxiv.org/abs/1812.09079) Residual blocks.
+We also apply instance normalization on the images before entering the main and residual paths.
+
+## The Loss Function
+The loss function is a way of expressing what you want the neural net to learn. In my past attempts on this problem, I noticed that the edges of my prediction are not as sharp as that of the high resolution images. So I created a loss function that allows me to penalize the network if my prediction's edges does not match that of the ground truth.
+
+I propose the following loss function.
+
+$ Loss(HR, SR) = pi * L1 + (1 - pi) * SobelEdge$
 
 * [3DSRnet: Video Super-resolution using 3D Convolutional Neural Networks](https://arxiv.org/abs/1812.09079)
 * [Wide Activation for Efficient and Accurate Image Super-Resolution](https://arxiv.org/abs/1808.08718)
