@@ -100,7 +100,7 @@ The loss function is a way of expressing what you want the neural net to learn. 
 
 I propose the following loss function.
 
-<p align="center"> <img src="img/loss.gif"> </p>
+<p align="center"> <img src="img/loss2.gif"> </p>
 
 * [3DSRnet: Video Super-resolution using 3D Convolutional Neural Networks](https://arxiv.org/abs/1812.09079)
 * [Wide Activation for Efficient and Accurate Image Super-Resolution](https://arxiv.org/abs/1808.08718)
