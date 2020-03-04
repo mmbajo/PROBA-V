@@ -9,6 +9,7 @@ A solution to the PROBA-V Super Resolution Competition. This solution treats the
 - [x] Training Framework
 - [x] Prediction Framework (for competition submission)
 - [ ] Preliminary Report
+- [ ] Code cleanup
 - [ ] Low resource training backend
 - [ ] Parse Config Framework
 - [ ] Multi-GPU support
