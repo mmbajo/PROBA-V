@@ -1,4 +1,5 @@
 # PROBA-V
+![LR SR HR](img/lr2hr.png)
 A solution to the PROBA-V Super Resolution Competition. This solution treats the multiple low resolution images as frames of a 'video' and 3D Convolutional Network to produce a super resolution image from the low resolution ones.
 
 ## TODO List
