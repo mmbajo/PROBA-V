@@ -1,0 +1,7 @@
+torch==1.4
+tensorflow-gpu==2.0.1
+tensorflow-addons==0.5.2
+scikit-image==0.15
+numpy
+matplotlib
+tqdm

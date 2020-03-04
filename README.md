@@ -15,15 +15,9 @@ A solution to the PROBA-V Super Resolution Competition. This solution treats the
 - [ ] Multi-GPU support
 - [ ] Colored Images support
 
-## Requirements
+## Setup to get started
 ```python
-torch=1.4
-tensorflow=2.0.1
-tensorflow-addons=0.5.2
-scikit-image=0.15
-numpy
-matplotlib
-tqdm
+pip3 install -r requirements.txt
 ```
 
 ## Usage
