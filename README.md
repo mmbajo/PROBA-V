@@ -90,7 +90,7 @@ Like any residual nets, this architecture has a main path and a residual path. W
 
 <p align="center"> <img src="img/wdsr-b-block.png"> </p>
 
-We also apply instance normalization on the images before entering the main and residual paths.
+We also apply [instance normalization](https://arxiv.org/abs/1607.08022) on the images before entering the main and residual paths.
 
 <p align="center"> <img src="img/normalizations.png"> </p>
 
@@ -100,7 +100,7 @@ The loss function is a way of expressing what you want the neural net to learn. 
 
 I propose the following loss function.
 
-$ Loss(HR, SR) = pi * L1 + (1 - pi) * SobelEdge$
+<p align="center"> <img src="img/loss.gif"> </p>
 
 * [3DSRnet: Video Super-resolution using 3D Convolutional Neural Networks](https://arxiv.org/abs/1812.09079)
 * [Wide Activation for Efficient and Accurate Image Super-Resolution](https://arxiv.org/abs/1808.08718)
