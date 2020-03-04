@@ -1,4 +1,4 @@
-# PROBA-V
+# EnhanceMe! : PROBA-V Super Resolution Challenge.
 <p align="center"> <img src="img/lr2hr.png"> </p>
 
 A solution to the PROBA-V Super Resolution Competition. This solution treats the multiple low resolution images as frames of a 'video' and 3D Convolutional Network to produce a super resolution image from the low resolution ones.
@@ -82,8 +82,18 @@ PROBA-V dataset is peculiar since multiple low resolution images are available f
 There is this paper where the researchers used [3D Convolutional Residual Networks(3DSRnet)](https://arxiv.org/abs/1812.09079) networks to generate super resolution video from low resolution ones. We will use that architecture along with [WDSR](https://arxiv.org/abs/1808.08718) blocks to build our network.
 
 ### Residual Conv3D and WDSR Combined
-The proposed architecture in [3DSRnet](https://arxiv.org/abs/1812.09079) is as follows. Like any residual nets, this architecture has a main path and a residual path. We replace the bicubic upsampling block with Weight normalized Conv2D net of the mean of the low resolution images. We replace the 3D-CNN block with multiple [WDSR](https://arxiv.org/abs/1812.09079) Residual blocks.
+The proposed architecture in [3DSRnet](https://arxiv.org/abs/1812.09079) is as follows.
+
+<p align="center"> <img src="img/3DSRnet.png"> </p>
+
+Like any residual nets, this architecture has a main path and a residual path. We replace the bicubic upsampling block with Weight normalized Conv2D net of the mean of the low resolution images. We replace the 3D-CNN block with multiple [WDSR](https://arxiv.org/abs/1812.09079) Residual blocks.
+
+<p align="center"> <img src="img/wdsr-b-block.png"> </p>
+
 We also apply instance normalization on the images before entering the main and residual paths.
+
+<p align="center"> <img src="img/normalizations.png"> </p>
+
 
 ## The Loss Function
 The loss function is a way of expressing what you want the neural net to learn. In my past attempts on this problem, I noticed that the edges of my prediction are not as sharp as that of the high resolution images. So I created a loss function that allows me to penalize the network if my prediction's edges does not match that of the ground truth.
