@@ -16,6 +16,7 @@ class Losses:
         self.cropBorder = cropBorder
         self.maxPixelShift = 2 * cropBorder
         self.numBytes = 2**bitDepth - 1
+        self.pi = 0.7
 
         self.cropSizeHeight = self.targetShapeHeight - self.maxPixelShift
         self.cropSizeWidth = self.targetShapeWidth - self.maxPixelShift
@@ -36,7 +37,7 @@ class Losses:
                 self.stackcPSNR(i, j, patchHR, maskHR, cropPrediction, cachecPSNR)
         cachecPSNR = tf.stack(cachecPSNR)
         cPSNR = tf.reduce_max(cachecPSNR, axis=0)
-        return tf.reduce_mean(cPSNR)
+        return cPSNR
 
     def shiftCompensatedL2Loss(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
         '''
@@ -68,6 +69,33 @@ class Losses:
         cacheLosses = tf.stack(cacheLosses)
         minLoss = tf.reduce_min(cacheLosses, axis=0)
         return minLoss
+
+    def shiftCompensatedL1EdgeLoss(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
+        cropPrediction = cropImage(predPatchHR, self.cropBorder, self.cropSizeHeight,
+                                   self.cropBorder, self.cropSizeWidth)
+        cacheLosses = []
+
+        # Iterate through all possible shift configurations
+        for i in range(self.maxPixelShift+1):
+            for j in range(self.maxPixelShift+1):
+                self.stackL1EdgeLoss(i, j, patchHR, maskHR, cropPrediction, cacheLosses)
+        cacheLosses = tf.stack(cacheLosses)
+        minLoss = tf.reduce_min(cacheLosses, axis=0)
+        return minLoss
+
+    def stackL1EdgeLoss(self, i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
+        cropTrueImg = cropImage(patchHR, i, self.cropSizeHeight, j, self.cropSizeWidth)
+        cropTrueMsk = cropImage(maskHR, i, self.cropSizeHeight, j, self.cropSizeWidth)
+        cropPredMskd = cropPred * cropTrueMsk
+        totalClearPixels = tf.reduce_sum(cropTrueMsk, axis=(1, 2, 3))
+
+        b = self.computeBiasBrightness(totalClearPixels, cropTrueImg, cropPredMskd)
+
+        correctedCropPred = cropPred + b
+        correctedCropPredMskd = correctedCropPred * cropTrueMsk
+
+        L1Loss = self.computeL1EdgeLoss(totalClearPixels, cropTrueImg, correctedCropPredMskd)
+        cache.append(L1Loss)
 
     def stackL1Loss(self, i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
         cropTrueImg = cropImage(patchHR, i, self.cropSizeHeight, j, self.cropSizeWidth)
@@ -117,6 +145,13 @@ class Losses:
         # Try each bias and find the one with the lowest loss.
         b = tf.reshape(b, (theShape[0], 1, 1, 1))
         return b
+
+    def computeL1EdgeLoss(self, totalClearPixels, HR, correctedSR):
+        l1loss = (1.0 / totalClearPixels) * tf.reduce_sum(tf.abs(tf.subtract(HR, correctedSR)), axis=(1, 2, 3))
+        sobelLoss = (1.0 / totalClearPixels) * tf.reduce_sum(tf.abs(tf.subtract(tf.image.sobel_edges(HR),
+                                                                                tf.image.sobel_edges(correctedSR))),
+                                                             axis=(1, 2, 3, 4))
+        return (self.pi * l1loss + (1 - self.pi) * sobelLoss)
 
     def computeL1Loss(self, totalClearPixels, HR, correctedSR):
         loss = (1.0 / totalClearPixels) * tf.reduce_sum(tf.abs(tf.subtract(HR, correctedSR)), axis=(1, 2, 3))

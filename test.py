@@ -24,9 +24,9 @@ imageio.core.util._precision_warn = ignore_warnings
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--images', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/patchesDir')
-    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_38_top7_90p_10Res')
+    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_38_top9_85p_12Res_L1Loss')
     parser.add_argument('--output', type=str,
-                        default='/home/mark/DataBank/PROBA-V-CHKPT/trainout_patch38_top7_90p_10res')
+                        default='/home/mark/DataBank/PROBA-V-CHKPT/trainout_patch38_top9_85p_12res_L1Loss')
     parser.add_argument('--band', type=str, default='RED')
     parser.add_argument('--totest', type=str, default='TEST')
     opt = parser.parse_args()
@@ -48,8 +48,8 @@ def main():
     logger.info('[ INFO ] Instantiate model...')
     modelIns = WDSRConv3D(name='patch38', band=opt.band, mean=datasetAllMean, std=datasetAllStd, maxShift=6)
     logger.info('[ INFO ] Building model...')
-    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=10,
-                           expRate=8, decayRate=0.8, numImgLR=7, patchSizeLR=38, isGrayScale=True)
+    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=12,
+                           expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=38, isGrayScale=True)
 
     ckpt = tf.train.Checkpoint(step=tf.Variable(0),
                                psnr=tf.Variable(1.0),

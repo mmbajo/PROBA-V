@@ -32,13 +32,13 @@ def parser():
     parser.add_argument('--band', default='NIR', type=str)
     parser.add_argument('--dir', type=str, default='/home/mark/DataBank/probav_data/')
     parser.add_argument('--ckptdir', default='/home/mark/DataBank/PROBA-V-CHKPT', type=str)
-    parser.add_argument('--numTopClearest', type=int, default=7)
+    parser.add_argument('--numTopClearest', type=int, default=9)
     parser.add_argument('--patchSizeLR', type=int, default=32)  # base patch size is 32
     parser.add_argument('--patchStrideLR', type=int, default=32)
-    parser.add_argument('--clarityThresholdLR', type=float, default=0.85)
-    parser.add_argument('--clarityThresholdHR', type=float, default=0.85)
-    parser.add_argument('--numPermute', type=int, default=9)
-    parser.add_argument('--toPad', type=bool, default=False)
+    parser.add_argument('--clarityThresholdLR', type=float, default=0.90)
+    parser.add_argument('--clarityThresholdHR', type=float, default=0.90)
+    parser.add_argument('--numPermute', type=int, default=11)
+    parser.add_argument('--toPad', type=bool, default=True)
     parser.add_argument('--ckpt', type=int, nargs='+', default=[1, 2, 3, 4, 5])
     opt = parser.parse_args()
     return opt

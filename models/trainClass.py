@@ -62,7 +62,7 @@ class ModelTrainer:
                      X: tf.Tensor, y: tf.Tensor,
                      globalBatchSize: int, epochs: int,
                      valData: List[np.ma.array],
-                     bufferSize: int = 512, valSteps: int = 64,
+                     bufferSize: int = 128, valSteps: int = 64,
                      saveBestOnly: bool = True, initEpoch: int = 0):
 
         logger.info('[ INFO ] Loading data set to buffer cache...')

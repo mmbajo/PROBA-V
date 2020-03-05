@@ -73,12 +73,12 @@ Here are what I tried. Most of them did not end well. I am still waiting for the
 
 Note: Lower is better.
 
-## The Preprocessing
+## Preprocessing Steps
 The preprocessing steps are the following:
 * Filtering out data sets with all its LR images contain clarity below 85%.
 * Picking out k best LR images.
 * Registering the LR images using this [technique](https://scikit-image.org/docs/dev/auto_examples/transform/plot_register_translation.html). I used the clearest of the LR images as the reference frame.
-* Padding the LR images with additional 3 pixels per side. The official scoring involves cropping the image by 3 pixels all side. This is to compensate for that.
+* Padding the LR images with additional 6 pixels per side which represent the maximum pixel shift that is compensated by the [scoring](https://kelvins.esa.int/proba-v-super-resolution/scoring/).
 * Patching the LR images to 38x38 sizes and the corresponding HR images to 96x96 patches.
 * Removing HR patches with clarity below 85%.
 * Augmenting the data set by flipping.
@@ -121,6 +121,17 @@ where p is the loss mixing hyperparameter which ranges from 0 to 1. This loss mi
 
 More concretely, we minimize the absolute difference between the sobel filtered predicted(middle) and truth(right) images along with the absolute difference between the unfiltered ones.
 
+## Some remarks
+* Training the data in patches and reconstructing it by just putting the prediction for respective patches might be a hindrance in achieving a good super resolution image. It might be a good idea if we implement a fusing/stitching network for this purpose.
+* Same with the registration of the images, it might be a good idea to use a neural net for this task.
+* In this implementation, I haven't clipped the LR images according to its bit depth which is 14-bit. Doing so might improve performance since it will remove the outliers in the dataset.
+
+## Sources
 * [3DSRnet: Video Super-resolution using 3D Convolutional Neural Networks](https://arxiv.org/abs/1812.09079)
 * [Wide Activation for Efficient and Accurate Image Super-Resolution](https://arxiv.org/abs/1808.08718)
 * [Instance Normalization: The Missing Ingredient for Fast Stylization](https://arxiv.org/abs/1607.08022)
+* [DeepSUM](https://arxiv.org/abs/1907.06490)
+* [WDSR Tensorflow implementation by krasserm](https://github.com/krasserm/super-resolution)
+* [DeepSUM source code by team Superpip](https://github.com/diegovalsesia/deepsum)
+* [3DWDSR by frandorr](https://github.com/frandorr)
+* [HighRes-net by team Rarefin](https://github.com/ElementAI/HighRes-net)
