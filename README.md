@@ -59,15 +59,31 @@ python3 test.py --data dataset/augmentedPatchesDir \
 ## The Results
 Here are what I tried. Most of them did not end well. I am still waiting for the result of my submissions. (The Post-Mortem evaluation server is down at the moment.)
 
-| Net           | Data          | ResBlocks | Filters  | Loss | Normalization |Score |
-| ------------- |:-------------:| -----:| -----:|-----:|-----:|-----:|
-| Conv3D + WDSR    | Patches 32x32 70% Clarity 7 LR Images | 8 |32  |L1  | Weight  |-  |
-| Conv3D + WDSR      | Patches 38x38  90% Clarity 7 LR Images |   8 | 32    |L1    | Weight  |-    |
-| Conv3D + WDSR      | Patches 38x38  90% Clarity 7 LR Images |   10 | 32    |L1    | Weight  |-    |
-| Conv3D + WDSR      | Augmented Patches 38x38 85% Clarity 7 LR Images |   10 | 32    |L1    | Weight  |-    |
-| Conv3D + WDSR      | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |L1    | Weight  |-    |
-| Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |L1 and Sobel L1 Mix   | Weight  |-    |
-| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |L1    | Weight  |-    |
+| Net           | Data          | ResBlocks | Filters  | Loss | Normalization |Hold Out Test Score | Competition Score |
+| ------------- |:-------------:| -----:| -----:|-----:|-----:|-----:|-----:|
+| Conv3D + WDSR    | Patches 32x32 70% Clarity 7 LR Images | 8 |32  |L1  | Weight  |~1.456 |-  |
+| Conv3D + WDSR      | Patches 38x38  90% Clarity 7 LR Images |   8 | 32    |L1    | Weight  |~1.345  |-  |
+| Conv3D + WDSR      | Patches 38x38  90% Clarity 7 LR Images |   10 | 32    |L1    | Weight  |~1.306   |-  |
+| Conv3D + WDSR      | Augmented Patches 38x38 85% Clarity 7 LR Images |   10 | 32    |L1    | Weight  |~1.304 |-  |
+| Conv3D + WDSR      | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |L1    | Weight  |~1.230 |-  |
+| Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |L1+SobelL1 Mix   | Weight  |~1.232   |-  |
+| Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |L1+SobelL1 Mix   | Weight  |~1.225    |-  |
+| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |L1+SobelL1 Mix  | Weight  |-    |-  |
+| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 64    |L1+SobelL1 Mix  | Weight  |-    |-  |
+
+Note: Lower is better.
+
+## The Preprocessing
+The preprocessing steps are the following:
+* Filtering out data sets with all its LR images contain clarity below 85%.
+* Picking out k best LR images.
+* Registering the LR images using this [technique](https://scikit-image.org/docs/dev/auto_examples/transform/plot_register_translation.html). I used the clearest of the LR images as the reference frame.
+* Padding the LR images with additional 3 pixels per side. The official scoring involves cropping the image by 3 pixels all side. This is to compensate for that.
+* Patching the LR images to 38x38 sizes and the corresponding HR images to 96x96 patches.
+* Removing HR patches with clarity below 85%.
+* Augmenting the data set by flipping.
+* Augmenting the data set by rotating by 90 to 270 degrees with interval of 90.
+* Augmenting the data set by shuffling the LR patches.
 
 ## The Model
 The model is based on the well known [WDSR](https://arxiv.org/abs/1808.08718) super resolution neural network architecture which performed very good in DIV2K super resolution dataset. This architecture takes in low resolution images and predicts its high resolution version by using 2D convolutional neural network.
@@ -85,7 +101,7 @@ Like any residual nets, this architecture has a main path and a residual path. W
 
 <p align="center"> <img src="img/wdsr-b-block.png"> </p>
 
-We also apply [instance normalization](https://arxiv.org/abs/1607.08022) on the images before entering the main and residual paths.
+We also apply [instance normalization](https://arxiv.org/abs/1607.08022) on the images before entering the main and residual paths. In the [DeepSUM](https://arxiv.org/abs/1907.06490) paper, they have used instance normalization in their architecture to make the network training as independent as possible per imageset. Here, we shall see the effect of using instance normalization.
 
 <p align="center"> <img src="img/normalizations.png"> </p>
 
