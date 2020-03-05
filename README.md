@@ -1,7 +1,7 @@
 # EnhanceMe! : PROBA-V Super Resolution Challenge
 <p align="center"> <img src="img/lr2hr.png"> </p>
 
-A solution to the PROBA-V Super Resolution Competition. This solution treats the multiple low resolution images as frames of a 'video' and 3D Convolutional Network to produce a super resolution image from the low resolution ones.
+A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/).
 
 
 ## TODO List
