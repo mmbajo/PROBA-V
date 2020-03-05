@@ -68,8 +68,8 @@ Here are what I tried. Most of them did not end well. I am still waiting for the
 | Conv3D + WDSR      | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |L1    |~1.230 |-  |
 | Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |SobelL1Mix   |~1.232   |-  |
 | Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |SobelL1Mix   |~1.225    |-  |
-| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |L1+SobelL1 Mix  |-    |-  |
-| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 64    |L1+SobelL1 Mix  |-    |-  |
+| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |SobelL1Mix   |-    |-  |
+| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 64    |SobelL1Mix  |-    |-  |
 
 Note: Lower is better.
 
