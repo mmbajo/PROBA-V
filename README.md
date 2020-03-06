@@ -1,5 +1,5 @@
 # EnhanceMe! : PROBA-V Super Resolution Challenge
-<p align="center"> <img src="img/mygif2.gif"> </p>
+<p align="center"> <img src="img/mygif3.gif"> </p>
 
 A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/).
 
