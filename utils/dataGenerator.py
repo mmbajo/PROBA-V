@@ -37,7 +37,7 @@ def parser():
     parser.add_argument('--patchStrideLR', type=int, default=32)
     parser.add_argument('--clarityThresholdLR', type=float, default=0.90)
     parser.add_argument('--clarityThresholdHR', type=float, default=0.90)
-    parser.add_argument('--numPermute', type=int, default=0)
+    parser.add_argument('--numPermute', type=int, default=11)
     parser.add_argument('--toPad', type=bool, default=True)
     parser.add_argument('--ckpt', type=int, nargs='+', default=[1, 2, 3, 4, 5])
     opt = parser.parse_args()
