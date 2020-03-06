@@ -34,7 +34,7 @@ def parser():
     parser.add_argument('--ckptdir', default='/home/mark/DataBank/PROBA-V-CHKPT', type=str)
     parser.add_argument('--numTopClearest', type=int, default=9)
     parser.add_argument('--patchSizeLR', type=int, default=32)  # base patch size is 32
-    parser.add_argument('--patchStrideLR', type=int, default=4)
+    parser.add_argument('--patchStrideLR', type=int, default=32)
     parser.add_argument('--clarityThresholdLR', type=float, default=0.90)
     parser.add_argument('--clarityThresholdHR', type=float, default=0.90)
     parser.add_argument('--numPermute', type=int, default=0)
