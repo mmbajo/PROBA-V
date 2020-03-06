@@ -130,11 +130,13 @@ More concretely, we minimize the absolute difference between the sobel filtered 
 
 
 ## Sources
+I learned a lot from this awesome authors of these research papers and repositories! Thank you very much for your hardwork!
+
 * [3DSRnet: Video Super-resolution using 3D Convolutional Neural Networks](https://arxiv.org/abs/1812.09079)
 * [Wide Activation for Efficient and Accurate Image Super-Resolution](https://arxiv.org/abs/1808.08718)
 * [Instance Normalization: The Missing Ingredient for Fast Stylization](https://arxiv.org/abs/1607.08022)
-* [DeepSUM](https://arxiv.org/abs/1907.06490)
+* [DeepSUM: Deep neural network for Super-resolution of Unregistered Multitemporal images](https://arxiv.org/abs/1907.06490)
 * [WDSR Tensorflow implementation by krasserm](https://github.com/krasserm/super-resolution)
 * [DeepSUM source code by team Superpip](https://github.com/diegovalsesia/deepsum)
-* [3DWDSR by frandorr](https://github.com/frandorr)
+* [3DWDSRnet by frandorr](https://github.com/frandorr)
 * [HighRes-net by team Rarefin](https://github.com/ElementAI/HighRes-net)
