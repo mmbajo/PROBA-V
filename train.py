@@ -69,7 +69,7 @@ def main():
     valData = [X_val, y_val, y_val_mask]
 
     logger.info('[ INFO ] Instantiate model...')
-    modelIns = WDSRConv3D(name='patch38_12ResBlocks', band=opt.band,
+    modelIns = WDSRConv3D(name='patch38_8ResBlocks', band=opt.band,
                           mean=datasetAllMean, std=datasetAllStd, maxShift=6)
     logger.info('[ INFO ] Building model...')
     model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=8,

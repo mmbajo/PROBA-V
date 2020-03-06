@@ -34,10 +34,10 @@ def parser():
     parser.add_argument('--ckptdir', default='/home/mark/DataBank/PROBA-V-CHKPT', type=str)
     parser.add_argument('--numTopClearest', type=int, default=9)
     parser.add_argument('--patchSizeLR', type=int, default=32)  # base patch size is 32
-    parser.add_argument('--patchStrideLR', type=int, default=32)
+    parser.add_argument('--patchStrideLR', type=int, default=4)
     parser.add_argument('--clarityThresholdLR', type=float, default=0.90)
     parser.add_argument('--clarityThresholdHR', type=float, default=0.90)
-    parser.add_argument('--numPermute', type=int, default=11)
+    parser.add_argument('--numPermute', type=int, default=0)
     parser.add_argument('--toPad', type=bool, default=True)
     parser.add_argument('--ckpt', type=int, nargs='+', default=[1, 2, 3, 4, 5])
     opt = parser.parse_args()
@@ -140,8 +140,8 @@ def main():
         if opt.toPad:
             paddings = [[0, 0], [0, 0], [0, 0], [LOSS_CROP_BORDER,
                                                  LOSS_CROP_BORDER], [LOSS_CROP_BORDER, LOSS_CROP_BORDER]]
-            trmImgLR = np.pad(trmImgMskLR, paddings, 'symmetric')
-            trmMskLR = np.pad(trmImgMskLR.mask, paddings, 'symmetric')
+            trmImgLR = np.pad(trmImgMskLR, paddings, 'reflect')
+            trmMskLR = np.pad(trmImgMskLR.mask, paddings, 'reflect')
             trmImgMskLR = np.ma.masked_array(trmImgLR, mask=trmMskLR)
             MAX_SHIFT = 2 * LOSS_CROP_BORDER
         else:
@@ -227,6 +227,8 @@ def augmentByRICAP():
 def augmentByShufflingLRImgs(patchLR: np.ma.masked_array, numPermute=9):
     # shape is (numImgSet, H, W, numLRImg, C)
     # (numImgSet, H, W, C)
+    if numPermute == 0:
+        return patchLR
     numImgSet, H, W, numLRImg, C = patchLR.shape
     cacheLR = [patchLR]
     for _ in range(numPermute):

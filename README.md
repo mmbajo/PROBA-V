@@ -121,10 +121,13 @@ where p is the loss mixing hyperparameter which ranges from 0 to 1. This loss mi
 
 More concretely, we minimize the absolute difference between the sobel filtered predicted(middle) and truth(right) images along with the absolute difference between the unfiltered ones.
 
-## Some remarks
+## Some remarks and ideas to try
 * Training the data in patches and reconstructing it by just putting the prediction for respective patches might be a hindrance in achieving a good super resolution image. It might be a good idea if we implement a fusing/stitching network for this purpose.
 * Same with the registration of the images, it might be a good idea to use a neural net for this task.
 * In this implementation, I haven't clipped the LR images according to its bit depth which is 14-bit. Doing so might improve performance since it will remove the outliers in the dataset.
+* In reconstructing the test set, applying a sliding window along the LR images sorted from clearest to dirtiest then creating SR images and applying a weighted average of the SR images might create a better prediction for the HR image.
+* How about using boosting along with deep neural nets?
+
 
 ## Sources
 * [3DSRnet: Video Super-resolution using 3D Convolutional Neural Networks](https://arxiv.org/abs/1812.09079)
