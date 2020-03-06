@@ -1,7 +1,4 @@
-model_checkpoint_path: "ckpt-35"
-all_model_checkpoint_paths: "ckpt-16"
-all_model_checkpoint_paths: "ckpt-17"
-all_model_checkpoint_paths: "ckpt-18"
+model_checkpoint_path: "ckpt-38"
 all_model_checkpoint_paths: "ckpt-19"
 all_model_checkpoint_paths: "ckpt-20"
 all_model_checkpoint_paths: "ckpt-21"
@@ -19,9 +16,9 @@ all_model_checkpoint_paths: "ckpt-32"
 all_model_checkpoint_paths: "ckpt-33"
 all_model_checkpoint_paths: "ckpt-34"
 all_model_checkpoint_paths: "ckpt-35"
-all_model_checkpoint_timestamps: 1583433774.163854
-all_model_checkpoint_timestamps: 1583434551.259676
-all_model_checkpoint_timestamps: 1583435328.337208
+all_model_checkpoint_paths: "ckpt-36"
+all_model_checkpoint_paths: "ckpt-37"
+all_model_checkpoint_paths: "ckpt-38"
 all_model_checkpoint_timestamps: 1583436105.480383
 all_model_checkpoint_timestamps: 1583437659.5710967
 all_model_checkpoint_timestamps: 1583438436.5781589
@@ -39,4 +36,7 @@ all_model_checkpoint_timestamps: 1583460885.6974096
 all_model_checkpoint_timestamps: 1583461539.0513804
 all_model_checkpoint_timestamps: 1583462192.3235962
 all_model_checkpoint_timestamps: 1583463375.0703545
+all_model_checkpoint_timestamps: 1583464682.2030766
+all_model_checkpoint_timestamps: 1583465863.7621167
+all_model_checkpoint_timestamps: 1583467169.6260958
 last_preserved_timestamp: 1583420639.1181724
