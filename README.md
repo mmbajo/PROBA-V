@@ -57,7 +57,7 @@ python3 test.py --data dataset/augmentedPatchesDir \
 ```
 
 ## The Results
-Here are what I tried. Most of them did not end well. I am still waiting for the result of my submissions. (The Post-Mortem evaluation server is down at the moment.)
+Here are what I tried. Most of them did not end well. **Posted below is the official score I got from the website.**
 
 | Net           | Data          | ResBlocks | Filters  | Loss | Score |
 | ------------- |:-------------:| -----:| -----:|-----:|-----:|
