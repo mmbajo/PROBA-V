@@ -36,7 +36,7 @@ class ModelTrainer:
                                         model=model)
         self.ckptMngr = tf.train.CheckpointManager(checkpoint=self.ckpt,
                                                    directory=ckptDir,
-                                                   max_to_keep=20)
+                                                   max_to_keep=5)
         self.loss = loss
         self.metric = metric
         self.logDir = logDir

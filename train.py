@@ -25,10 +25,10 @@ def parser():
     parser.add_argument('--data', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/augmentedPatchesDir')
     parser.add_argument('--band', type=str, default='NIR')
     parser.add_argument('--split', type=float, default=0.2)
-    parser.add_argument('--batchSize', type=int, default=64)
+    parser.add_argument('--batchSize', type=int, default=128)
     parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--logDir', type=str, default='modelInfo/logs_38_top9_90p_8Res_32_L1Loss')
-    parser.add_argument('--ckptDir', type=str, default='modelInfo/ckpt_38_top9_90p_8Res_32_L1Loss')
+    parser.add_argument('--logDir', type=str, default='modelInfo/logs_16_top9_85p_8Res_32_L1Loss')
+    parser.add_argument('--ckptDir', type=str, default='modelInfo/ckpt_16_top9_85p_8Res_32_L1Loss')
     parser.add_argument('--optim', type=str, default='nadam')
     opt = parser.parse_args()
     return opt
@@ -73,7 +73,7 @@ def main():
                           mean=datasetAllMean, std=datasetAllStd, maxShift=6)
     logger.info('[ INFO ] Building model...')
     model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=8,
-                           expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=38, isGrayScale=True)
+                           expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=16, isGrayScale=True)
 
     logger.info(f'[ INFO ] Initialize {opt.optim.upper()} optimizer...')
     if opt.optim == 'adam':
@@ -85,7 +85,7 @@ def main():
         optimizer = SGD(learning_rate=5e-4)
 
     logger.info('[ INFO ] Initialize Trainer...')
-    loss = Losses()
+    loss = Losses(targetShape=(48, 48, 1))
     ckptDir = os.path.join(opt.ckptDir, opt.band)
     logDir = os.path.join(opt.logDir, opt.band)
     trainClass = ModelTrainer(model=model,

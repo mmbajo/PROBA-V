@@ -24,8 +24,8 @@ imageio.core.util._precision_warn = ignore_warnings
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--images', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/patchesDir')
-    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_38_top9_90p_8Res_32_L1Loss')
-    parser.add_argument('--output', type=str, default='testout')
+    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_16_top9_90p_8Res_32_L1Loss')
+    parser.add_argument('--output', type=str, default='trainout_16_top9_90p_8Res_32_L1Loss_postlearn')
     parser.add_argument('--band', type=str, default='RED')
     parser.add_argument('--totest', type=str, default='TEST')
     opt = parser.parse_args()
@@ -48,7 +48,7 @@ def main():
     modelIns = WDSRConv3D(name='patch38', band=opt.band, mean=datasetAllMean, std=datasetAllStd, maxShift=6)
     logger.info('[ INFO ] Building model...')
     model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=8,
-                           expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=38, isGrayScale=True)
+                           expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=16, isGrayScale=True)
 
     ckpt = tf.train.Checkpoint(step=tf.Variable(0),
                                psnr=tf.Variable(1.0),
@@ -56,7 +56,7 @@ def main():
     ckptDir = os.path.join(opt.modelckpt, opt.band)
     ckptMngr = tf.train.CheckpointManager(checkpoint=ckpt,
                                           directory=ckptDir,
-                                          max_to_keep=20)
+                                          max_to_keep=5)
 
     ckpt.restore(ckptMngr.latest_checkpoint)
     logger.info('[ INFO ] Generating predictions...')
@@ -107,11 +107,12 @@ def resolve(model, lr_batch):
 def reconstruct_from_patches(images):
     rec_img = np.zeros((384, 384, 1))
     block_n = 0
-    first_block = images[0, :, :, ]
-    for i in range(1, 5):
-        for j in range(1, 5):
+    n = int(len(images) ** 0.5)
+    patchSize = images.shape[1]
+    for i in range(1, n+1):
+        for j in range(1, n+1):
 
-            rec_img[(i-1)*96:i*96, (j-1)*96:j*96] = images[block_n, :, :, ]
+            rec_img[(i-1)*patchSize: i*patchSize, (j-1)*patchSize: j*patchSize] = images[block_n, :, :, ]
             block_n += 1
 
     return rec_img.reshape((384, 384, 1))
