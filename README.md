@@ -59,17 +59,17 @@ python3 test.py --data dataset/augmentedPatchesDir \
 ## The Results
 Here are what I tried. Most of them did not end well. I am still waiting for the result of my submissions. (The Post-Mortem evaluation server is down at the moment.)
 
-| Net           | Data          | ResBlocks | Filters  | Loss | Test Score | Competition Score |
-| ------------- |:-------------:| -----:| -----:|-----:|-----:|-----:|
-| Conv3D + WDSR    | Patches 32x32 70% Clarity 7 LR Images | 8 |32  |L1  |~1.456 |-  |
-| Conv3D + WDSR      | Patches 38x38  90% Clarity 7 LR Images |   8 | 32    |L1    |~1.345  |-  |
-| Conv3D + WDSR      | Patches 38x38  90% Clarity 7 LR Images |   10 | 32    |L1    |~1.306   |-  |
-| Conv3D + WDSR      | Augmented Patches 38x38 85% Clarity 7 LR Images |   10 | 32    |L1     |~1.304 |-  |
-| Conv3D + WDSR      | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |L1    |~1.230 |-  |
-| Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |SobelL1Mix   |~1.232   |-  |
-| Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |SobelL1Mix   |~1.225    |-  |
-| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |SobelL1Mix   |-    |-  |
-| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 64    |SobelL1Mix  |-    |-  |
+| Net           | Data          | ResBlocks | Filters  | Loss | Score |
+| ------------- |:-------------:| -----:| -----:|-----:|-----:|
+| Conv3D + WDSR    | Patches 32x32 70% Clarity 7 LR Images | 8 |32  |L1  |1.130 |
+| Conv3D + WDSR      | Patches 38x38  90% Clarity 7 LR Images |   8 | 32    |L1    |0.9653  |
+| Conv3D + WDSR      | Patches 38x38  90% Clarity 7 LR Images |   10 | 32    |L1    |~1.306   |
+| Conv3D + WDSR      | Augmented Patches 38x38 85% Clarity 7 LR Images |   10 | 32    |L1     |~1.304 |
+| Conv3D + WDSR      | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |L1    |0.9697	 |
+| Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |SobelL1Mix   |0.9728   |
+| Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |L1  |0.9591   |
+| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |SobelL1Mix   |-    |
+| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 64    |SobelL1Mix  |-    |
 
 Note: Lower is better. Uhmmm, so yeah, I think I computed the scores wrong. I will update this asap.
 
