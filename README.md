@@ -71,7 +71,7 @@ Here are what I tried. Most of them did not end well. **Posted below is the offi
 | Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |SobelL1Mix   |-    |
 | Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 64    |SobelL1Mix  |-    |
 
-Note: Lower is better. Uhmmm, so yeah, I think I computed the scores wrong. I will update this asap.
+Note: Lower is better.
 
 ## Preprocessing Steps
 The preprocessing steps are the following:
