@@ -24,8 +24,8 @@ imageio.core.util._precision_warn = ignore_warnings
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--images', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/patchesDir')
-    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_16_top9_90p_8Res_32_L1Loss')
-    parser.add_argument('--output', type=str, default='trainout_16_top9_90p_8Res_32_L1Loss_postlearn')
+    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_16_top9_85p_8Res_32_L1Loss')
+    parser.add_argument('--output', type=str, default='testout_16_top9_85p_8Res_32_L1Loss_postlearn')
     parser.add_argument('--band', type=str, default='RED')
     parser.add_argument('--totest', type=str, default='TEST')
     opt = parser.parse_args()

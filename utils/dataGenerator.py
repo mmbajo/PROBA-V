@@ -33,11 +33,11 @@ def parser():
     parser.add_argument('--dir', type=str, default='/home/mark/DataBank/probav_data/')
     parser.add_argument('--ckptdir', default='/home/mark/DataBank/PROBA-V-CHKPT', type=str)
     parser.add_argument('--numTopClearest', type=int, default=9)
-    parser.add_argument('--patchSizeLR', type=int, default=32)  # base patch size is 32
-    parser.add_argument('--patchStrideLR', type=int, default=32)
-    parser.add_argument('--clarityThresholdLR', type=float, default=0.90)
-    parser.add_argument('--clarityThresholdHR', type=float, default=0.90)
-    parser.add_argument('--numPermute', type=int, default=11)
+    parser.add_argument('--patchSizeLR', type=int, default=16)  # base patch size is 32
+    parser.add_argument('--patchStrideLR', type=int, default=16)
+    parser.add_argument('--clarityThresholdLR', type=float, default=0.85)
+    parser.add_argument('--clarityThresholdHR', type=float, default=0.85)
+    parser.add_argument('--numPermute', type=int, default=19)
     parser.add_argument('--toPad', type=bool, default=True)
     parser.add_argument('--ckpt', type=int, nargs='+', default=[1, 2, 3, 4, 5])
     opt = parser.parse_args()
@@ -202,7 +202,7 @@ def main():
         logging.info(f'Augmenting by permuting {band} train HR Patches... Input: {augmentedPatchesLR.shape}')
         augmentedPatchesLR = augmentByShufflingLRImgs(augmentedPatchesLR, numPermute=opt.numPermute)
         logging.info(f'Augmenting by flipping {band} train LR Patches... Input: {augmentedPatchesLR.shape}')
-        augmentedPatchesLR = augmentByFlipping(augmentedPatchesLR)
+        #augmentedPatchesLR = augmentByFlipping(augmentedPatchesLR)
         logging.info(f'Saving {band} train LR Patches... Final shape: {augmentedPatchesLR.shape}')
         augmentedPatchesLR.dump(os.path.join(augmentedPatchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
         del augmentedPatchesLR
@@ -213,7 +213,7 @@ def main():
         logging.info(f'Augmenting by permuting {band} train HR Patches... Input: {augmentedPatchesHR.shape}')
         augmentedPatchesHR = np.tile(augmentedPatchesHR, (opt.numPermute + 1, 1, 1, 1))
         logging.info(f'Augmenting by flipping {band} train HR Patches... Input: {augmentedPatchesHR.shape}')
-        augmentedPatchesHR = augmentByFlipping(augmentedPatchesHR)
+        #augmentedPatchesHR = augmentByFlipping(augmentedPatchesHR)
         logging.info(f'Saving {band} train HR Patches... Final shape: {augmentedPatchesHR.shape}')
         augmentedPatchesHR.dump(os.path.join(augmentedPatchesDir, f'TRAINpatchesHR_{band}.npy'), protocol=4)
         del augmentedPatchesHR
