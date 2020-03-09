@@ -36,6 +36,7 @@ The training was done in a computer with the following specifications:
 * RAM: **64GB**
 * Swap Space: **72GB**
 * GPU: **GTX1080ti**
+
 If you don't have a computer with high RAM, consider lowering the batch size or lowering the number of residual blocks of the network. If you have better specs, try raising the number of low resolution images and increasing the residual blocks for better performance.
 
 ```sh
