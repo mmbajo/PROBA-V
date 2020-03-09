@@ -8,6 +8,7 @@ A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int
 - [x] Preprocessing Pipeline
 - [x] Training Framework
 - [x] Prediction Framework (for competition submission)
+- [ ] Bicubic Mean Technique comparison graph
 - [ ] Preliminary Report
 - [ ] Code cleanup
 - [ ] Low resource training backend
