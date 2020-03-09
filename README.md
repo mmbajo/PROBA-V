@@ -133,7 +133,7 @@ More concretely, we minimize the absolute difference between the sobel filtered 
 
 
 ## References
-I learned a lot from this awesome authors of these research papers and repositories! Thank you very much for your hardwork!
+I learned a lot from these awesome authors of these research papers and repositories!
 
 * [Super-Resolution of PROBA-V Images Using Convolutional Neural Networks](https://arxiv.org/pdf/1907.01821.pdf)
 * [Real-Time Single Image and Video Super-Resolution Using an Efficient Sub-Pixel Convolutional Neural Network](https://arxiv.org/abs/1609.05158)
