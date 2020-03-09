@@ -64,7 +64,8 @@ class WDSRConv3D:
         for i in range(numResBlocks):
             x = self.ResConv3D(x, numFilters, expRate, decayRate, kernelSize, i)
 
-        x = self.ConvReduceAndUpscale(x, numImgLR, scale, numFilters, kernelSize)
+        x = self.ConvReduceAndUpscale(x, numImgLR, scale, numFilters, kernelSize) if numImgLR == 9 else \
+            self.ConvReduceAndUpscalev2(x, numImgLR, scale, numFilters, kernelSize)  # numImgLR == 7
         x = Reshape((patchSizeLR, patchSizeLR, scale*scale), name='reshapeMain')(x)
         #  See https://arxiv.org/abs/1609.05158
         x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsMain')(x)  # Pixel Shuffle!
