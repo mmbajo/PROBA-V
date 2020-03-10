@@ -12,6 +12,7 @@ from tensorflow.keras.optimizers import Adam, SGD, Nadam
 from models.modelsTF import WDSRConv3D, iWDSRConv3D, FuseNetConv2D
 from models.trainClass import ModelTrainer
 from models.loss import Losses
+from utils.parseConfig import parseConfig
 from utils.utils import *
 from tqdm import tqdm
 from skimage import io
@@ -24,24 +25,18 @@ logger = logging.getLogger('__name__')
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/augmentedPatchesDir')
+    parser.add_argument('--cfg', default='cfg/p16t9c85r12.cfg', type=str)
     parser.add_argument('--band', type=str, default='NIR')
-    parser.add_argument('--split', type=float, default=0.2)
-    parser.add_argument('--batchSize', type=int, default=128)
-    parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--logDir', type=str, default='modelInfo/logs_16_top9_85p_12Res_32_L1Loss')
-    parser.add_argument('--ckptDir', type=str, default='modelInfo/ckpt_16_top9_85p_12Res_32_L1Loss')
-    parser.add_argument('--optim', type=str, default='nadam')
     parser.add_argument('--modelType', type=str, default='patchNet')
     opt = parser.parse_args()
     return opt
 
 
-def patchNet():
+def patchNet(config):
     logger.info('[ INFO ] Loading data...')
-
-    patchHR = np.load(os.path.join(opt.data, f'TRAINpatchesHR_{opt.band}.npy'), allow_pickle=True)
-    patchLR = np.load(os.path.join(opt.data, f'TRAINpatchesLR_{opt.band}.npy'), allow_pickle=True)
+    dataDir = os.path.join(config['preprocessing_out'], 'augmentedPatchesDir')
+    patchHR = np.load(os.path.join(dataDir, f'TRAINpatchesHR_{opt.band}.npy'), allow_pickle=True)
+    patchLR = np.load(os.path.join(dataDir, f'TRAINpatchesLR_{opt.band}.npy'), allow_pickle=True)
 
     logger.info('[ INFO ] Computing data stats...')
     if opt.band == 'NIR':
@@ -53,7 +48,7 @@ def patchNet():
 
     logger.info('[ INFO ] Splitting data...')
     X_train, X_val, y_train, y_val, y_train_mask, y_val_mask = train_test_split(
-        patchLR, patchHR, ~patchHR.mask, test_size=opt.split, random_state=17)
+        patchLR, patchHR, ~patchHR.mask, test_size=config['split'], random_state=17)
 
     logger.info('[ INFO ] Freeing up memory...')
     del patchLR
@@ -72,39 +67,54 @@ def patchNet():
     valData = [X_val, y_val, y_val_mask]
 
     logger.info('[ INFO ] Instantiate model...')
-    modelIns = WDSRConv3D(name='patch38_8ResBlocks', band=opt.band,
-                          mean=datasetAllMean, std=datasetAllStd, maxShift=6)
-    logger.info('[ INFO ] Building model...')
-    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=12,
-                           expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=16, isGrayScale=True)
+    modelIns = WDSRConv3D(name='superResolutionNet', band=opt.band,
+                          mean=datasetAllMean, std=datasetAllStd, maxShift=config['max_shift'])
 
-    logger.info(f'[ INFO ] Initialize {opt.optim.upper()} optimizer...')
-    if opt.optim == 'adam':
-        optimizer = Adam(learning_rate=5e-4)
-    elif opt.optim == 'nadam':
+    logger.info('[ INFO ] Building model...')
+    kernelSize = (config['kernel_size'], config['kernel_size'], config['kernel_size'])
+    model = modelIns.build(scale=config['scale'], numFilters=config['num_filters'], kernelSize=kernelSize,
+                           numResBlocks=config['num_res_blocks'], expRate=config['exp_rate'],
+                           decayRate=config['decay_rate'], numImgLR=config['num_low_res_imgs'],
+                           patchSizeLR=config['patch_size'], isGrayScale=config['is_grayscale'])
+
+    logger.info(f"[ INFO ] Initialize {config['optimizer'].upper()} optimizer...")
+    if config['optimizer'] == 'adam':
+        optimizer = Adam(learning_rate=config['learning_rate'])
+    elif config['optimizer'] == 'nadam':
         # http://cs229.stanford.edu/proj2015/054_report.pdf
-        optimizer = Nadam(learning_rate=5e-4)
+        optimizer = Nadam(learning_rate=config['learning_rate'])
     else:
-        optimizer = SGD(learning_rate=5e-4)
+        optimizer = SGD(learning_rate=config['learning_rate'])
 
     logger.info('[ INFO ] Initialize Trainer...')
-    loss = Losses(targetShape=(48, 48, 1))
-    ckptDir = os.path.join(opt.ckptDir, opt.band)
-    logDir = os.path.join(opt.logDir, opt.band)
+    target = config['scale'] * config['patch_size']
+    loss = Losses(targetShape=(target, target, 1))
+
+    basename = os.path.basename(opt.cfg).split('.')[0]
+    ckptDir = os.path.join(config['model_out'], f'ckpt_{basename}', opt.band)
+    logDir = os.path.join(config['model_out'], f'logs_{basename}', opt.band)
+
+    if config['loss'] == 'l1':
+        type_loss = loss.shiftCompensatedL1Loss
+    elif config['loss'] == 'sobel_l1_mix':
+        type_loss = loss.shiftCompensatedL1EdgeLoss
+    elif config['loss'] == 'l2':
+        type_loss = loss.shiftCompensatedL2Loss
+
     trainClass = ModelTrainer(model=model,
-                              loss=loss.shiftCompensatedL1Loss,  # ,shiftCompensatedL1EdgeLoss
+                              loss=type_loss,
                               metric=loss.shiftCompensatedcPSNR,
                               optimizer=optimizer,
                               ckptDir=ckptDir,
                               logDir=logDir)
 
-    trainClass.fitTrainData(X_train, y, opt.batchSize, opt.epochs, valData)
+    trainClass.fitTrainData(X_train, y, config['batch_size'], config['epochs'], valData)
 
     logger.info(f'[ SUCCESS ] Model checkpoint can be found in {ckptDir}.')
     logger.info(f'[ SUCCESS ] Model logs can be found in {logDir}.')
 
 
-def fusionNet():
+def fusionNet(config):
     # Input data
     logger.info('[ INFO ] Loading SR data...')
     # opt.fusionDataPath
@@ -136,7 +146,7 @@ def fusionNet():
     # Split data
     logger.info('[ INFO ] Splitting data...')
     X_train, X_val, y_train, y_val, y_train_mask, y_val_mask = train_test_split(
-        inputImgs, allImgMsk, ~allImgMsk.mask, test_size=opt.split, random_state=17)
+        inputImgs, allImgMsk, ~allImgMsk.mask, test_size=config['split'], random_state=17)
 
     logger.info('[ INFO ] Converting masked_array to array...')
     X_train = np.array(X_train)
@@ -153,14 +163,14 @@ def fusionNet():
     modelIns = FuseNetConv2D(name='fuseme', band=opt.band)
     model = modelIns.build()
 
-    logger.info(f'[ INFO ] Initialize {opt.optim.upper()} optimizer...')
-    if opt.optim == 'adam':
-        optimizer = Adam(learning_rate=5e-4)
-    elif opt.optim == 'nadam':
+    logger.info(f"[ INFO ] Initialize {config['optimizer'].upper()} optimizer...")
+    if config['optimizer'] == 'adam':
+        optimizer = Adam(learning_rate=config['learning_rate'])
+    elif config['optimizer'] == 'nadam':
         # http://cs229.stanford.edu/proj2015/054_report.pdf
-        optimizer = Nadam(learning_rate=5e-4)
+        optimizer = Nadam(learning_rate=config['learning_rate'])
     else:
-        optimizer = SGD(learning_rate=5e-4)
+        optimizer = SGD(learning_rate=config['learning_rate'])
 
     logger.info('[ INFO ] Initialize Trainer...')
     loss = Losses(targetShape=(384, 384, 1))
@@ -173,7 +183,7 @@ def fusionNet():
                               ckptDir=ckptDir,
                               logDir=logDir)
 
-    trainClass.fitTrainData(X_train, y, opt.batchSize, opt.epochs, valData)
+    trainClass.fitTrainData(X_train, y, config['batch_size'], config['epochs'], valData)
 
     logger.info(f'[ SUCCESS ] Model checkpoint can be found in {ckptDir}.')
     logger.info(f'[ SUCCESS ] Model logs can be found in {logDir}.')
@@ -181,7 +191,8 @@ def fusionNet():
 
 if __name__ == '__main__':
     opt = parser()
+    config = parseConfig(opt.cfg)
     if opt.modelType == 'patchNet':
-        patchNet()
+        patchNet(config)
     else:
-        fusionNet()
+        fusionNet(config)

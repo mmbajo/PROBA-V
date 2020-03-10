@@ -6,6 +6,7 @@ import numpy as np
 from skimage import io
 from tqdm import tqdm
 from models.modelsTF import WDSRConv3D
+from utils.parseConfig import parseConfig
 from utils.utils import *
 import imageio.core.util
 
@@ -23,6 +24,7 @@ imageio.core.util._precision_warn = ignore_warnings
 
 def parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--cfg', default='cfg/p16t9c85r12.cfg', type=str)
     parser.add_argument('--images', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/patchesDir')
     parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_16_top9_85p_12Res_32_L1Loss')
     parser.add_argument('--output', type=str, default='testout_16_top9_85p_12Res_32_L1Loss')
@@ -32,9 +34,10 @@ def parser():
     return opt
 
 
-def main():
+def main(config):
     logger.info('[ INFO ] Loading data...')
-    patchLR = np.load(os.path.join(opt.images, f'{opt.totest}patchesLR_{opt.band}.npy'), allow_pickle=True)
+    dataDir = os.path.join(config['preprocessing_out'], 'trimmedPatchesDir')
+    patchLR = np.load(os.path.join(dataDir, f'{opt.totest}patchesLR_{opt.band}.npy'), allow_pickle=True)
     patchLR = patchLR.transpose((0, 1, 4, 5, 2, 3))
 
     if opt.band == 'NIR':
@@ -45,15 +48,21 @@ def main():
         datasetAllStd = 3431.8614
 
     logger.info('[ INFO ] Instantiate model...')
-    modelIns = WDSRConv3D(name='patch38', band=opt.band, mean=datasetAllMean, std=datasetAllStd, maxShift=6)
+    modelIns = WDSRConv3D(name='superResolutionNet', band=opt.band,
+                          mean=datasetAllMean, std=datasetAllStd, maxShift=config['max_shift'])
+
     logger.info('[ INFO ] Building model...')
-    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=12,
-                           expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=16, isGrayScale=True)
+    kernelSize = (config['kernel_size'], config['kernel_size'], config['kernel_size'])
+    model = modelIns.build(scale=config['scale'], numFilters=config['num_filters'], kernelSize=kernelSize,
+                           numResBlocks=config['num_res_blocks'], expRate=config['exp_rate'],
+                           decayRate=config['decay_rate'], numImgLR=config['num_low_res_imgs'],
+                           patchSizeLR=config['patch_size'], isGrayScale=config['is_grayscale'])
 
     ckpt = tf.train.Checkpoint(step=tf.Variable(0),
                                psnr=tf.Variable(1.0),
                                model=model)
-    ckptDir = os.path.join(opt.modelckpt, opt.band)
+    basename = os.path.basename(opt.cfg).split('.')[0]
+    ckptDir = os.path.join(config['model_out'], f'ckpt_{basename}', opt.band)
     ckptMngr = tf.train.CheckpointManager(checkpoint=ckpt,
                                           directory=ckptDir,
                                           max_to_keep=5)
@@ -64,22 +73,24 @@ def main():
 
     band = opt.band.upper()
     if opt.totest == 'TEST':
+        outDir = config['test_out'] + f'_{basename}'
         if band == 'NIR':
             i = 1306
         elif band == 'RED':
             i = 1160
     else:
+        outDir = config['train_out'] + f'_{basename}'
         if band == 'NIR':
             i = 594
         elif band == 'RED':
             i = 0
 
-    if not os.path.exists(opt.output):
-        os.makedirs(opt.output)
+    if not os.path.exists(outDir):
+        os.makedirs(outDir)
 
-    logging.info(f'[ SAVE ] Saving predicted images to {opt.output}...')
+    logging.info(f'[ SAVE ] Saving predicted images to {outDir}...')
     for img in tqdm(y_preds):
-        io.imsave(os.path.join(opt.output, f"imgset{'%04d' % i}.png"), img[:, :, 0].astype(np.uint16))
+        io.imsave(os.path.join(outDir, f"imgset{'%04d' % i}.png"), img[:, :, 0].astype(np.uint16))
         i += 1
 
 
@@ -132,4 +143,5 @@ def reconstruct_from_patches(images):
 
 if __name__ == '__main__':
     opt = parser()
-    main()
+    config = parseConfig(opt.cfg)
+    main(config)
