@@ -635,6 +635,7 @@ def pickClearImg(imgMsk: np.ma.masked_array, numImgToPick: int) -> np.ma.masked_
     else:
         trimmedImgMsk = np.copy(sortedImgMskArray)
         while len(trimmedImgMsk) < numImgToPick:
+            print('Short on data!')
             shuffledIndices = np.random.choice(sortedIndices, size=len(sortedIndices), replace=False)
             toAppend = imgMsk[shuffledIndices]
             trimmedImgMsk = np.ma.concatenate((trimmedImgMsk, toAppend))

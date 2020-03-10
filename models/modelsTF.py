@@ -3,10 +3,6 @@ from tensorflow_addons.layers import WeightNormalization, InstanceNormalization
 from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Conv3D, Conv2D, Lambda, Add, Reshape
 
-MEAN = 8818.0603   # NIR:8216.2191  # RED: 5376.158
-STD = 6534.1132    # NIR:3751.4718  # RED: 4161.090
-MAX_SHIFT = 6
-
 
 class WDSRConv3D:
     def __init__(self, name, band, mean, std, maxShift):
@@ -304,3 +300,89 @@ class iWDSRConv3D:
 
     def denormalize(self, x):
         return x * self.std + self.mean
+
+
+class FuseNetConv2D:
+    def __init__(self, name, band):
+        self.name = name
+        self.band = band
+
+    def build(self) -> Model:
+        # Define inputs
+        imgLRIn = Input(shape=(384, 384, 1))
+
+        # Fusing patch
+        main = self.FuseNetv3(imgLRIn)
+
+        # Fuse Main and Residual Patch
+        out = Add(name='mainPlusInput')([imgLRIn, main])
+
+        return Model(imgLRIn, out, name=f'FuseNet_{self.band}_{self.name}')
+
+    def FuseNet(self, xIn):
+        x = Conv2D(128, 3, 3, padding='same')(xIn)
+        x = InstanceNormalization(axis=3,
+                                  center=True,
+                                  scale=True,
+                                  beta_initializer="random_uniform",
+                                  gamma_initializer="random_uniform")(x)
+        x = tf.keras.layers.LeakyReLU(alpha=0.3)(x)
+
+        x = Conv2D(64, 3, 1, padding='same')(x)
+        x = InstanceNormalization(axis=3,
+                                  center=True,
+                                  scale=True,
+                                  beta_initializer="random_uniform",
+                                  gamma_initializer="random_uniform")(x)
+        x = tf.keras.layers.LeakyReLU(alpha=0.3)(x)
+
+        x = Conv2D(32, 3, 1, padding='same')(x)
+        x = InstanceNormalization(axis=3,
+                                  center=True,
+                                  scale=True,
+                                  beta_initializer="random_uniform",
+                                  gamma_initializer="random_uniform")(x)
+        x = tf.keras.layers.LeakyReLU(alpha=0.3)(x)
+
+        x = Conv2D(9, 3, 1, padding='same')(x)
+        x = InstanceNormalization(axis=3,
+                                  center=True,
+                                  scale=True,
+                                  beta_initializer="random_uniform",
+                                  gamma_initializer="random_uniform")(x)
+        x = tf.keras.layers.LeakyReLU(alpha=0.3)(x)
+        x = Lambda(lambda x: tf.nn.depth_to_space(x, 3), name='dtsMain2')(x)
+
+        return x
+
+    def FuseNetv2(self, xIn):
+        x = Conv2D(64, 8, 8, padding='same')(xIn)
+        x = InstanceNormalization(axis=3,
+                                  center=True,
+                                  scale=True,
+                                  beta_initializer="random_uniform",
+                                  gamma_initializer="random_uniform")(x)
+        x = tf.keras.layers.LeakyReLU(alpha=0.3)(x)
+
+        x = Conv2D(64, 3, 1, padding='same')(x)
+        x = InstanceNormalization(axis=3,
+                                  center=True,
+                                  scale=True,
+                                  beta_initializer="random_uniform",
+                                  gamma_initializer="random_uniform")(x)
+        x = tf.keras.layers.LeakyReLU(alpha=0.3)(x)
+        x = Lambda(lambda x: tf.nn.depth_to_space(x, 8), name='dtsMain2')(x)
+
+        return x
+
+    def FuseNetv3(self, xIn):
+        x = Conv2D(64, 48, 1, padding='same')(xIn)
+        x = InstanceNormalization(axis=3,
+                                  center=True,
+                                  scale=True,
+                                  beta_initializer="random_uniform",
+                                  gamma_initializer="random_uniform")(x)
+        x = tf.keras.layers.LeakyReLU(alpha=0.3)(x)
+        x = Lambda(lambda x: tf.reduce_mean(x, axis=3, keepdims=True), name='mean')(x)
+
+        return x

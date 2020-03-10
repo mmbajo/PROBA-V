@@ -24,8 +24,8 @@ imageio.core.util._precision_warn = ignore_warnings
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--images', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/patchesDir')
-    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_16_top9_85p_8Res_32_L1Loss')
-    parser.add_argument('--output', type=str, default='testout_16_top9_85p_8Res_32_L1Loss_postlearn')
+    parser.add_argument('--modelckpt', type=str, default='modelInfo/ckpt_16_top9_85p_12Res_32_L1Loss')
+    parser.add_argument('--output', type=str, default='testout_16_top9_85p_12Res_32_L1Loss')
     parser.add_argument('--band', type=str, default='RED')
     parser.add_argument('--totest', type=str, default='TEST')
     opt = parser.parse_args()
@@ -47,7 +47,7 @@ def main():
     logger.info('[ INFO ] Instantiate model...')
     modelIns = WDSRConv3D(name='patch38', band=opt.band, mean=datasetAllMean, std=datasetAllStd, maxShift=6)
     logger.info('[ INFO ] Building model...')
-    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=8,
+    model = modelIns.build(scale=3, numFilters=32, kernelSize=(3, 3, 3), numResBlocks=12,
                            expRate=8, decayRate=0.8, numImgLR=9, patchSizeLR=16, isGrayScale=True)
 
     ckpt = tf.train.Checkpoint(step=tf.Variable(0),
@@ -101,6 +101,18 @@ def resolve(model, lr_batch):
     sr_batch = tf.clip_by_value(sr_batch, 0, 2**16)
     sr_batch = tf.round(sr_batch)
     sr_batch = tf.cast(sr_batch, tf.float32)
+    return sr_batch
+
+
+def resolveBySampleAveraging(model, lr_batch):
+    cache = []
+    for _ in range(20):
+        newIdx = np.random.permutation(lr_batch.shape[3])
+        lr_batch = lr_batch[:, :, :, newIdx, :]
+        resPatches = resolve(model, lr_batch)
+        cache.append(resPatches)
+    toAve = tf.stack(cache)
+    sr_batch = tf.reduce_mean(toAve, axis=0)
     return sr_batch
 
 
