@@ -8,11 +8,11 @@ A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int
 - [x] Preprocessing Pipeline
 - [x] Training Framework
 - [x] Prediction Framework (for competition submission)
+- [x] Parse Config Framework
+- [x] Preliminary Report
 - [ ] Bicubic Mean Technique comparison graph
-- [ ] Preliminary Report
 - [ ] Code cleanup
 - [ ] Low resource training backend
-- [ ] Parse Config Framework
 - [ ] Multi-GPU support
 - [ ] Colored Images support
 
@@ -22,11 +22,49 @@ pip3 install -r requirements.txt
 ```
 
 ## Usage
-I shall implement an editable config file mechanism in the future as I find it really annoying when I make a typo in command line and not being able to correct it fast. But maybe one could use shell scripts for this.
+You should create a new cfg file with the format below. The current repository has a model in it. Should you wish to see the super resolution version of the dataset using my pretrained model, just run the preprocessing script and after that the test.py script and you are good to go. You must first download the data [here](https://kelvins.esa.int/proba-v-super-resolution/data/) and specify the directory of the raw data in the cfg file.
+### Configuration (cfg) file
+```sh
+[Directories]
+raw_data=probav_data      <Directory of the raw data.>
+preprocessing_out=output  <Directory of where you want to put the output.>
+model_out=modelInfo       <Directory of where you want to put the model checkpoints.>
+train_out=trainout        <Directory of where you want to put predictions for the train data.>
+test_out=testout          <Directory of where you want to put predictions for the test data.>
+
+[Train]
+batch_size=128            <Batch size for training.>
+epochs=100                <Number of epochs for training.>
+learning_rate=0.0005      <Number of epochs for training.>
+optimizer=nadam           <Optimizer to use for training.>
+loss=l1                   <Loss to use for training.>
+split=0.2                 <Validation split.>
+
+[Net]
+num_res_blocks=12         <Number of residual blocks for the model graph.>
+num_low_res_imgs=9        <Number of low resolution images to pick for the model.>
+scale=3                   <Upscale factor of the low resolution image to high resolution image.>
+num_filters=32            <Number of filters to use for each residual block.>
+kernel_size=3             <Kernel size of the convolution filter.>
+exp_rate=8                <Expansion rate of the expansion block inside the residual block.>
+decay_rate=0.8            <Decay rate of the decay block inside the residual block.>
+is_grayscale=1            <Is the input image grayscale? 1. If not, 0.>
+
+[Preprocessing]
+max_shift=6               <Maximum possible shift to account in loss computation and model building.>
+patch_size=16             <Base patch size for each low resolution image.>
+patch_stride=16           <Base patch size for each low resolution image.>
+low_res_threshold=0.85    <Clarity Threshold for the low resolution images.>
+high_res_threshold=0.85   <Clarity Threshold for the high resolution images.>
+num_low_res_permute=19    <Augment data by permuting the order of the low resolution images.>
+to_flip=0                 <Augment data by flipping the images.>
+to_rotate=0               <Augment data by rotating the images.>
+ckpt=1,2,3,4,5            <Preprocessing checkpoints for debugging.>
+
+```
 ### Preprocessing
 ```sh
-python3 utils/dataGenerator.py --dir probav_data \
-                               --ckptdir dataset \
+python3 utils/dataGenerator.py --cfg cfg/p16t9c85r12.cfg \
                                --band NIR
 
 ```
@@ -40,22 +78,14 @@ The training was done in a computer with the following specifications:
 If you don't have a computer with high RAM, consider lowering the batch size or lowering the number of residual blocks of the network. If you have better specs, try raising the number of low resolution images and increasing the residual blocks for better performance.
 
 ```sh
-python3 train.py --data dataset/augmentedPatchesDir \
-                 --band NIR \
-                 --split 0.3 \
-                 --batchSize 64 \
-                 --epochs 100 \
-                 --logDir modelInfo/logs \
-                 --ckptDir modelInfo/ckpt \
-                 --optim nadam \
+python3 train.py --cfg cfg/p16t9c85r12.cfg \
+                 --band NIR
 
 ```
 ### Test
 ```sh
-python3 test.py --data dataset/augmentedPatchesDir \
-                --band NIR \
-                --modelckpt modelInfo/ckpt \
-                --output output
+python3 test.py --cfg cfg/p16t9c85r12.cfg \
+                --band NIR
 ```
 
 ## The Results
