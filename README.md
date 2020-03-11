@@ -1,7 +1,7 @@
 # EnhanceMe! : PROBA-V Super Resolution Challenge
 <p align="center"> <img src="img/mygif3.gif"> </p>
 
-A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 6** with a score of **0.9536** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/).
+A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9416** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/).
 
 
 ## TODO List
@@ -99,10 +99,9 @@ Here are what I tried. Most of them did not end well. **Posted below is the offi
 | Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   10 | 32    |SobelL1Mix   |0.9728   |
 | Conv3D + WDSR  | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |L1  |0.9591   |
 | Conv3D + WDSR  | Augmented Patches 22x22 85% Clarity 9 LR Images |   8 | 32    |L1  |0.9550   |
-| Conv3D + WDSR + FuseNet | Augmented Patches 22x22 85% Clarity 9 LR Images |   8 | 32    |L1  |-   |
 | Conv3D + WDSR  | Augmented Patches 22x22 85% Clarity 9 LR Images |   12 | 32    |L1  |0.9536   |
-| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 32    |SobelL1Mix   |-    |
-| Conv3D + WDSR + InstanceNorm     | Augmented Patches 38x38 85% Clarity 9 LR Images |   12 | 64    |SobelL1Mix  |-    |
+| Conv3D + WDSR  | Augmented Patches 22x22 85% Clarity 9 LR Images plus LR patch filter of 85% Clarity |   12 | 32    |L1  |0.9416   |
+
 
 Note: Lower is better.
 
