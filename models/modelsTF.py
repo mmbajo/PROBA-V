@@ -43,6 +43,7 @@ class WDSRConv3D:
         return Model(imgLRIn, out, name=f'WDSRConv3D_{self.band}_{self.name}')
 
     def WDSRNetResidualPath(self, x: tf.Tensor, kernelSize: tuple, scale: int):
+        # TODO: Check correctness for different scales
         for i in range(scale):
             act = 'relu' if i == 0 else None
             x = self.weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize,
