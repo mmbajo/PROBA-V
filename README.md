@@ -15,6 +15,7 @@ A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int
 - [ ] Low resource training backend
 - [ ] Multi-GPU support
 - [ ] Colored Images support
+- [ ] BE TOP 1 AT LEAST ONCE!!!!!!! :confounded::confounded::confounded:
 
 ## Setup to get started
 ```python
