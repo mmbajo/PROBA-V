@@ -142,7 +142,7 @@ We also apply [instance normalization](https://arxiv.org/abs/1607.08022) on the 
 The final model looks like this.
 
 
-<p align="center"> <img src="img/model.png"> </p>
+<p align="center"> <img src="img/model2.png"> </p>
 
 
 ## The Loss Function
