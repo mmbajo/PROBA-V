@@ -124,8 +124,6 @@ The model is based on the well known [WDSR](https://arxiv.org/abs/1808.08718) su
 
 PROBA-V dataset is peculiar since multiple low resolution images are available for predicting the high resolution image. We can view this as the temporal information being available to us. In other words, those low resolution images can be treated as frames of a video and in videos, time one dimension of information.
 
-<p align="center"> <img src="img/model.png"> </p>
-
 There is this paper where the researchers used [3D Convolutional Residual Networks(3DSRnet)](https://arxiv.org/abs/1812.09079) networks to generate super resolution video from low resolution ones. We will use that architecture along with [WDSR](https://arxiv.org/abs/1808.08718) blocks to build our network.
 
 ### Residual Conv3D and WDSR Combined
@@ -140,6 +138,11 @@ Like any residual nets, this architecture has a main path and a residual path. W
 We also apply [instance normalization](https://arxiv.org/abs/1607.08022) on the images before entering the main and residual paths. In the [DeepSUM](https://arxiv.org/abs/1907.06490) paper, they have used instance normalization in their architecture to make the network training as independent as possible per imageset. Here, we shall see the effect of using instance normalization.
 
 <p align="center"> <img src="img/normalizations.png"> </p>
+
+The final model looks like this.
+
+
+<p align="center"> <img src="img/model.png"> </p>
 
 
 ## The Loss Function
