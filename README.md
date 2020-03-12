@@ -27,40 +27,41 @@ You should create a new cfg file with the format below. The current repository h
 ### Configuration (cfg) file
 ```sh
 [Directories]
-raw_data=probav_data      <Directory of the raw data.>
-preprocessing_out=output  <Directory of where you want to put the output.>
-model_out=modelInfo       <Directory of where you want to put the model checkpoints.>
-train_out=trainout        <Directory of where you want to put predictions for the train data.>
-test_out=testout          <Directory of where you want to put predictions for the test data.>
+raw_data=probav_data            <Directory of the raw data.>
+preprocessing_out=output        <Directory of where you want to put the output.>
+model_out=modelInfo             <Directory of where you want to put the model checkpoints.>
+train_out=trainout              <Directory of where you want to put predictions for the train data.>
+test_out=testout                <Directory of where you want to put predictions for the test data.>
 
 [Train]
-batch_size=128            <Batch size for training.>
-epochs=100                <Number of epochs for training.>
-learning_rate=0.0005      <Number of epochs for training.>
-optimizer=nadam           <Optimizer to use for training.>
-loss=l1                   <Loss to use for training.>
-split=0.2                 <Validation split.>
+batch_size=128                  <Batch size for training.>
+epochs=100                      <Number of epochs for training.>
+learning_rate=0.0005            <Number of epochs for training.>
+optimizer=nadam                 <Optimizer to use for training.>
+loss=l1                         <Loss to use for training.>
+split=0.2                       <Validation split.>
 
 [Net]
-num_res_blocks=12         <Number of residual blocks for the model graph.>
-num_low_res_imgs=9        <Number of low resolution images to pick for the model.>
-scale=3                   <Upscale factor of the low resolution image to high resolution image.>
-num_filters=32            <Number of filters to use for each residual block.>
-kernel_size=3             <Kernel size of the convolution filter.>
-exp_rate=8                <Expansion rate of the expansion block inside the residual block.>
-decay_rate=0.8            <Decay rate of the decay block inside the residual block.>
-is_grayscale=1            <Is the input image grayscale? 1. If not, 0.>
+num_res_blocks=12               <Number of residual blocks for the model graph.>
+num_low_res_imgs=9              <Number of low resolution images to pick for the model.>
+scale=3                         <Upscale factor of the low resolution image to high resolution image.>
+num_filters=32                  <Number of filters to use for each residual block.>
+kernel_size=3                   <Kernel size of the convolution filter.>
+exp_rate=8                      <Channel Expansion Multiple of the expansion block inside the residual block.>
+decay_rate=0.8                  <Channel Decay Multiple of the decay block inside the residual block.>
+is_grayscale=1                  <Is the input image grayscale? 1. If not, 0.>
 
 [Preprocessing]
-max_shift=6               <Maximum possible shift to account in loss computation and model building.>
-patch_size=16             <Base patch size for each low resolution image.>
-patch_stride=16           <Base patch size for each low resolution image.>
-low_res_threshold=0.85    <Clarity Threshold for the low resolution images.>
-high_res_threshold=0.85   <Clarity Threshold for the high resolution images.>
-num_low_res_permute=19    <Augment data by permuting the order of the low resolution images.>
-to_flip=0                 <Augment data by flipping the images.>
-to_rotate=0               <Augment data by rotating the images.>
-ckpt=1,2,3,4,5            <Preprocessing checkpoints for debugging.>
+max_shift=6                     <Maximum possible shift to account in loss computation and model building.>
+patch_size=16                   <Base patch size for each low resolution image.>
+patch_stride=16                 <Base patch size for each low resolution image.>
+low_res_patch_thresholds=0.85   <Clarity Threshold for the low resolution patches.>
+low_res_threshold=0.85          <Clarity Threshold for the low resolution images.>
+high_res_threshold=0.85         <Clarity Threshold for the high resolution images.>
+num_low_res_permute=19          <Augment data by permuting the order of the low resolution images.>
+to_flip=0                       <Augment data by flipping the images.>
+to_rotate=0                     <Augment data by rotating the images.>
+ckpt=1,2,3,4,5                  <Preprocessing checkpoints for debugging.>
 
 ```
 ### Preprocessing
