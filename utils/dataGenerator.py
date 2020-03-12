@@ -161,7 +161,7 @@ def main(config):
     # CHECKPOINT 4 - CLEANING PATCHES
     if 4 in config['ckpt']:
         logging.info(f'Loading {band} test LR Patches...')
-        patchesLRTest = np.load(os.path.join(patchesDir, f'TESTpatchesLR_{band}.npy'), allow_pickle=True)
+        trmPatchesLRTest = np.load(os.path.join(patchesDir, f'TESTpatchesLR_{band}.npy'), allow_pickle=True)
         logging.info(f'Loading {band} train LR Patches...')
         patchesLR = np.load(os.path.join(patchesDir, f'TRAINpatchesLR_{band}.npy'), allow_pickle=True)
         logging.info(f'Loading {band} train HR Patches...')
@@ -170,11 +170,15 @@ def main(config):
         trmPatchesLR, trmPatchesHR = removeCorruptedTrainPatchSets(
             patchesLR, patchesHR, clarityThreshold=config['high_res_threshold'])
 
-        logging.info(f"Deleting {band} test LR patches that has below {config['low_res_threshold']} clarity...")
-        trmPatchesLRTest = pickClearPatchesLR(patchesLRTest, clarityThreshold=config['low_res_threshold'])
+        logging.info(f"Filtering {band} test LR patches...")
+        for i, patchThreshold in enumerate(config['low_res_patch_thresholds']):
+            print(f'[***************** TEST LR DATA THRESHOLD {patchThreshold} PASS {i+1} *****************]')
+            trmPatchesLRTest = pickClearPatchesLR(trmPatchesLRTest, clarityThreshold=patchThreshold)
 
-        logging.info(f"Deleting {band} train LR patches that has below {config['low_res_threshold']} clarity...")
-        trmPatchesLR = pickClearPatchesLR(trmPatchesLR, clarityThreshold=config['low_res_threshold'])
+        logging.info(f"Filtering {band} train LR patches...")
+        for i, patchThreshold in enumerate(config['low_res_patch_thresholds']):
+            print(f'[***************** TRAIN LR DATA THRESHOLD {patchThreshold} PASS {i+1} *****************]')
+            trmPatchesLR = pickClearPatchesLR(trmPatchesLR, clarityThreshold=patchThreshold)
 
         logging.info(f"Deleting {band} train HR patches that has below {config['high_res_threshold']} clarity...")
         trmPatchesLR, trmPatchesHR = pickClearPatches(
@@ -276,11 +280,11 @@ def pickClearPatchesLR(patchesLR: np.ma.masked_array,
     notGood = (count/(numImgSet*numPatches) * 100)
     notReplaced = countNotReplacedAll/count * 100
     if notGood > 50:
-        print(f'[ WARNING ] {notGood:.2f}% of the patches did not pass the {clarityThreshold} threshold.')
-        print(f'[ WARNING ] Among those patches, {notReplaced:.2f}% were not replaced!')
+        message = 'WARNING'
     else:
-        print(f'[ INFO ] {notGood:.2f}% of the patches did not pass the {clarityThreshold} threshold.')
-        print(f'[ INFO ] Among those patches, {notReplaced:.2f}% were not replaced!')
+        message = 'INFO'
+    print(f'[ {message} ] {notGood:.2f}% of the patches did not pass the {clarityThreshold} threshold.')
+    print(f'[ {message} ] Among those patches, {notReplaced:.2f}% were not replaced!')
     return trimmedPatchesLR
 
 
@@ -681,7 +685,7 @@ def pickClearLRImgsPerImgSet(imgMskLR: np.ma.masked_array,
         cache.append(clearData)
         count += countDuplicates
     duplicates = (count/(len(imgMskLR)*numImgPerImgSet))*100
-    print(f'[ INFO ] Among the all the LR images, {duplicates:.7f}% are duplicates of high quality frames.')
+    print(f'[ INFO ] Among the all the LR images, {duplicates:.2f}% are duplicates of high quality frames.')
     return np.ma.array(cache)
 
 

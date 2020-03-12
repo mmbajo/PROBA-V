@@ -31,6 +31,8 @@ def parseConfig(path: str) -> Dict:
             if moduleDefs[-1]['type'] == 'Preprocessing':
                 if 'ckpt' in key:
                     moduleDefs[-1][key] = [int(x) for x in val.split(',')]
+                elif 'low_res_patch_thresholds' in key:
+                    moduleDefs[-1][key] = [float(x) for x in val.split(',')]
                 elif 'low_res_threshold' in key or 'high_res_threshold' in key:
                     moduleDefs[-1][key] = float(val.strip())
                 elif 'to_flip' in key or 'to_rotate' in key:
@@ -60,8 +62,9 @@ def parseConfig(path: str) -> Dict:
     supported = ['type', 'raw_data', 'preprocessing_out',
                  'model_out', 'batch_size', 'epochs', 'learning_rate', 'optimizer', 'split', 'num_res_blocks',
                  'num_low_res_imgs', 'scale', 'num_filters', 'kernel_size', 'exp_rate', 'decay_rate', 'is_grayscale',
-                 'max_shift', 'patch_size', 'patch_stride', 'low_res_threshold', 'high_res_threshold',
-                 'num_low_res_permute', 'to_flip', 'to_rotate', 'ckpt', 'test_out', 'train_out', 'loss']
+                 'max_shift', 'patch_size', 'patch_stride', 'low_res_patch_thresholds', 'low_res_threshold',
+                 'high_res_threshold', 'num_low_res_permute', 'to_flip', 'to_rotate', 'ckpt', 'test_out', 'train_out',
+                 'loss']
 
     # Check for unsupported fields
     fields = []
