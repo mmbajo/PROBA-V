@@ -42,13 +42,11 @@ class WDSRConv3D:
 
         return Model(imgLRIn, out, name=f'WDSRConv3D_{self.band}_{self.name}')
 
-    def WDSRNetResidualPath(self, meanImgLR: tf.Tensor, kernelSize: tuple, scale: int):
-        x = self.weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize,
-                                    padding='valid', activation='relu', name='residConv1')(meanImgLR)
-        x = self.weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize,
-                                    padding='valid', name='residConv2')(x)
-        x = self.weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize,
-                                    padding='valid', name='residConv3')(x)
+    def WDSRNetResidualPath(self, x: tf.Tensor, kernelSize: tuple, scale: int):
+        for i in range(scale):
+            act = 'relu' if i == 0 else None
+            x = self.weightNormedConv2D(outChannels=scale*scale, kernelSize=kernelSize,
+                                        padding='valid', activation=act, name=f'residConv{i+1}')(x)
         #  See https://arxiv.org/abs/1609.05158
         x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsResid')(x)  # Pixel Shuffle!
         return x
@@ -73,9 +71,9 @@ class WDSRConv3D:
         for i in range(numImgLR//scale):
             if i == 0:
                 x = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],
-                                            mode='reflect'), name=f'convReducePad_{i}')(x)
+                                            mode='reflect'), name=f'convReducePad_{i+1}')(x)
             x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
-                                        activation='relu', name=f'convReducer_{i}')(x)
+                                        activation='relu', name=f'convReducer_{i+1}')(x)
         # Upscale block
         x = self.weightNormedConv3D(outChannels=scale*scale, kernelSize=kernelSize,
                                     padding='valid', name='upscaleConv1')(x)
@@ -86,7 +84,7 @@ class WDSRConv3D:
         # Conv Reducer
         for i in range(numImgLR//scale):
             x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
-                                        activation='relu', name=f'convReducer_{i}')(x)
+                                        activation='relu', name=f'convReducer_{i+1}')(x)
         # Upscale block
         x = self.weightNormedConv3D(outChannels=scale*scale, kernelSize=kernelSize,
                                     padding='valid', name='upscaleConv1')(x)
@@ -159,14 +157,18 @@ class iWDSRConv3D:
 
         return Model(imgLRIn, out, name=f'WDSRConv3D_{self.band}_{self.name}')
 
-    def iWDSRNetResidualPath(self, meanImgLR: tf.Tensor, kernelSize: tuple, scale: int):
-        x = self.conv2DIns(meanImgLR, outChannels=scale*scale, kernelSize=kernelSize,
+    def iWDSRNetResidualPath(self, x: tf.Tensor, kernelSize: tuple, scale: int):
+        x = self.conv2DIns(x, outChannels=scale*scale, kernelSize=kernelSize,
                            padding='valid', activation='mish', name='residConv1')
         x = self.conv2DIns(x, outChannels=scale*scale, kernelSize=kernelSize,
                            padding='valid', name='residConv2')
         x = self.conv2DIns(x, outChannels=scale*scale, kernelSize=kernelSize,
                            padding='valid', name='residConv3')
-        #  See https://arxiv.org/abs/1609.05158
+        for i in range(scale):
+            act = 'mish' if i == 0 else None
+            x = self.conv2DIns(x, outChannels=scale*scale, kernelSize=kernelSize,
+                               padding='valid', activation=act, name=f'residConv{i+1}')
+            #  See https://arxiv.org/abs/1609.05158
         x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsResid')(x)  # Pixel Shuffle!
         return x
 
