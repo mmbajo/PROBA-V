@@ -139,7 +139,7 @@ We also apply [instance normalization](https://arxiv.org/abs/1607.08022) on the 
 
 <p align="center"> <img src="img/normalizations.png"> </p>
 
-The final model looks like this.
+The final model looks like this. In the ResBlocks3D, we use the novel WDSR-B blocks.
 
 
 <p align="center"> <img src="img/model2.png"> </p>
