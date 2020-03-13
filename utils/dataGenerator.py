@@ -22,7 +22,7 @@ logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', default='cfg/p16t9c85r12.cfg', type=str)
+    parser.add_argument('--cfg', default='cfg/p8t9c85r12.cfg', type=str)
     parser.add_argument('--band', default='NIR', type=str)
     opt = parser.parse_args()
     return opt
@@ -201,10 +201,14 @@ def main(config):
         augmentedPatchesLR = np.load(os.path.join(trimmedPatchesDir, f'TRAINpatchesLR_{band}.npy'), allow_pickle=True)
         logging.info(f'Augmenting by permuting {band} train HR Patches... Input: {augmentedPatchesLR.shape}')
         augmentedPatchesLR = augmentByShufflingLRImgs(augmentedPatchesLR, numPermute=config['num_low_res_permute'])
-        if config['to_flip'] or config['to_flip']:
+        if config['to_flip']:
             logging.info(
-                f'Augmenting by flipping/rotating {band} train LR Patches... Input: {augmentedPatchesLR.shape}')
+                f'Augmenting by flipping {band} train LR Patches... Input: {augmentedPatchesLR.shape}')
             augmentedPatchesLR = augmentByFlipping(augmentedPatchesLR)
+        if config['to_rotate']:
+            logging.info(
+                f'Augmenting by rotating {band} train LR Patches... Input: {augmentedPatchesLR.shape}')
+            augmentedPatchesLR = augmentByRotating(augmentedPatchesLR)
         logging.info(f'Saving {band} train LR Patches... Final shape: {augmentedPatchesLR.shape}')
         augmentedPatchesLR.dump(os.path.join(augmentedPatchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
         del augmentedPatchesLR
@@ -214,10 +218,14 @@ def main(config):
         augmentedPatchesHR = np.load(os.path.join(trimmedPatchesDir, f'TRAINpatchesHR_{band}.npy'), allow_pickle=True)
         logging.info(f'Augmenting by permuting {band} train HR Patches... Input: {augmentedPatchesHR.shape}')
         augmentedPatchesHR = np.tile(augmentedPatchesHR, (config['num_low_res_permute'] + 1, 1, 1, 1))
-        if config['to_flip'] or config['to_flip']:
+        if config['to_flip']:
             logging.info(
-                f'Augmenting by flipping/rotating {band} train HR Patches... Input: {augmentedPatchesHR.shape}')
+                f'Augmenting by rotating {band} train HR Patches... Input: {augmentedPatchesHR.shape}')
             augmentedPatchesHR = augmentByFlipping(augmentedPatchesHR)
+        if config['to_rotate']:
+            logging.info(
+                f'Augmenting by rotating {band} train HR Patches... Input: {augmentedPatchesHR.shape}')
+            augmentedPatchesHR = augmentByRotating(augmentedPatchesHR)
         logging.info(f'Saving {band} train HR Patches... Final shape: {augmentedPatchesHR.shape}')
         augmentedPatchesHR.dump(os.path.join(augmentedPatchesDir, f'TRAINpatchesHR_{band}.npy'), protocol=4)
         del augmentedPatchesHR
@@ -244,14 +252,20 @@ def augmentByShufflingLRImgs(patchLR: np.ma.masked_array, numPermute=9):
 
 
 def augmentByFlipping(patches: np.ma.masked_array):
-    img90 = np.rot90(patches, k=1, axes=(1, 2))
-    img180 = np.rot90(patches, k=2, axes=(1, 2))
-    img270 = np.rot90(patches, k=3, axes=(1, 2))
     imgFlipV = np.flip(patches, axis=(1))
     imgFlipH = np.flip(patches, axis=(2))
     imgFlipVH = np.flip(patches, axis=(1, 2))
 
-    allImgMsk = np.concatenate((patches, img90, img180, img270, imgFlipV, imgFlipH, imgFlipVH))
+    allImgMsk = np.concatenate((patches, imgFlipV, imgFlipH, imgFlipVH))
+    return allImgMsk
+
+
+def augmentByRotating(patches: np.ma.masked_array):
+    img90 = np.rot90(patches, k=1, axes=(1, 2))
+    img180 = np.rot90(patches, k=2, axes=(1, 2))
+    img270 = np.rot90(patches, k=3, axes=(1, 2))
+
+    allImgMsk = np.concatenate((patches, img90, img180, img270))
     return allImgMsk
 
 
