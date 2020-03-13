@@ -84,6 +84,21 @@ python3 train.py --cfg cfg/p16t9c85r12.cfg \
                  --band NIR
 
 ```
+
+I trained different set of weights for the NIR and RED band. If you have more than one GPU, it might be wise to train them simultaneously using the following code.
+
+```sh
+CUDA_VISIBLE_DEVICES=0 python3 train.py --cfg cfg/p16t9c85r12.cfg \
+                                        --band NIR
+
+```
+
+```sh
+CUDA_VISIBLE_DEVICES=1 python3 train.py --cfg cfg/p16t9c85r12.cfg \
+                                        --band RED
+
+```
+
 ### Test
 ```sh
 python3 test.py --cfg cfg/p16t9c85r12.cfg \
@@ -139,7 +154,7 @@ We also apply [instance normalization](https://arxiv.org/abs/1607.08022) on the 
 
 <p align="center"> <img src="img/normalizations.png"> </p>
 
-The final model looks like this. In the ResBlocks3D, we use the novel WDSR-B blocks.
+The final model looks like this. In the ResBlocks3D, we use the novel WDSR-B blocks. [Pixel shuffle](https://arxiv.org/abs/1609.05158) is used for the reconstruction of the super resolution image from the convolutional filters.
 
 
 <p align="center"> <img src="img/model2.png"> </p>
@@ -177,6 +192,7 @@ I learned a lot from these awesome authors of these research papers and reposito
 * [Wide Activation for Efficient and Accurate Image Super-Resolution](https://arxiv.org/abs/1808.08718)
 * [Instance Normalization: The Missing Ingredient for Fast Stylization](https://arxiv.org/abs/1607.08022)
 * [DeepSUM: Deep neural network for Super-resolution of Unregistered Multitemporal images](https://arxiv.org/abs/1907.06490)
+* [Real-Time Single Image and Video Super-Resolution Using an Efficient Sub-Pixel Convolutional Neural Network](https://arxiv.org/abs/1609.05158)
 * [WDSR Tensorflow implementation by krasserm](https://github.com/krasserm/super-resolution)
 * [DeepSUM source code by team Superpip](https://github.com/diegovalsesia/deepsum)
 * [3DWDSRnet by frandorr](https://github.com/frandorr)
