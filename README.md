@@ -85,7 +85,7 @@ python3 train.py --cfg cfg/p16t9c85r12.cfg \
 
 ```
 
-I trained different set of weights for the NIR and RED band. If you have more than one GPU, it might be wise to train them simultaneously using the following code.
+I trained different set of weights for the NIR and RED band. If you have more than one GPU, it might be wise to train them simultaneously using the following code. I will implement multi-GPU support in the future.
 
 ```sh
 CUDA_VISIBLE_DEVICES=0 python3 train.py --cfg cfg/p16t9c85r12.cfg \
