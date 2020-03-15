@@ -21,9 +21,10 @@ def parser():
     return opt
 
 
+# TODO: COMPLETE THIS SCRIPT
 def main():
     predImgFname = os.listdir(opt.preds)
-    patchSize = 96
+    patchSize = 128
 
     allImg = loadHRImages()
 
@@ -31,9 +32,9 @@ def main():
     del allImg
 
     currBest = loadImagesIntoArray(
-        '/home/mark/DataBank/PROBA-V-CHKPT/old/results/testout_patch38_top9_85p_12res_L1Loss')
+        '/home/mark/PROBA-V/trainout_p16t9c85r12pre19_BENCHMARK')
     currBest = generatePatches(currBest, patchSize, patchSize)
-    toCompare = loadImagesIntoArray('/home/mark/PROBA-V/trainout_16_top9_90p_8Res_32_L1Loss_postlearn')
+    toCompare = loadImagesIntoArray('/home/mark/PROBA-V/trainout_p16t9c85r12pre19')
     toCompare = generatePatches(toCompare, patchSize, patchSize)
 
     currBest = currBest.transpose((0, 2, 3, 1))
@@ -48,8 +49,8 @@ def main():
     ax.set_xlim([30, 70])
     ax.set_ylim([30, 70])
     ax.plot([30, 70], [30, 70], 'red', zorder=1)
-    ax.set_xlabel('cPSNR: 32x32 12Res85Clarity')
-    ax.set_ylabel('cPSNR: 16x16 8Res90Clarity')
+    ax.set_xlabel('p16t9c85r12pre19_BENCHMARK')
+    ax.set_ylabel('p16t9c85r12pre19')
     fig.show()
 
 
@@ -84,7 +85,7 @@ def loadImagesIntoArray(path):
 
 
 def loadHRImages():
-    dirName = '/home/mark/DataBank/PROBA-V-CHKPT/trimmedArrayDir'
+    dirName = '/home/mark/DataBank/PROBA-V-CHKPT/resolverDir'
     red = 'TRAINimgHR_RED.npy'
     nir = 'TRAINimgHR_NIR.npy'
 
