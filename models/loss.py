@@ -55,7 +55,7 @@ class Losses:
                 self.stackL2Loss(i, j, patchHR, maskHR, cropPrediction, cacheLosses)
         cacheLosses = tf.stack(cacheLosses)  # [49, numBatchSize]
         minLoss = tf.reduce_min(cacheLosses, axis=0)
-        return minLoss
+        return tf.reduce_mean(minLoss)
 
     def shiftCompensatedL1Loss(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
         cropPrediction = cropImage(predPatchHR, self.cropBorder, self.cropSizeHeight,
@@ -68,7 +68,7 @@ class Losses:
                 self.stackL1Loss(i, j, patchHR, maskHR, cropPrediction, cacheLosses)
         cacheLosses = tf.stack(cacheLosses)
         minLoss = tf.reduce_min(cacheLosses, axis=0)
-        return minLoss
+        return tf.reduce_mean(minLoss)
 
     def shiftCompensatedL1EdgeLoss(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
         cropPrediction = cropImage(predPatchHR, self.cropBorder, self.cropSizeHeight,
@@ -81,7 +81,7 @@ class Losses:
                 self.stackL1EdgeLoss(i, j, patchHR, maskHR, cropPrediction, cacheLosses)
         cacheLosses = tf.stack(cacheLosses)
         minLoss = tf.reduce_min(cacheLosses, axis=0)
-        return minLoss
+        return tf.reduce_mean(minLoss)
 
     def stackL1EdgeLoss(self, i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
         cropTrueImg = cropImage(patchHR, i, self.cropSizeHeight, j, self.cropSizeWidth)

@@ -5,36 +5,36 @@ import os
 import numpy as np
 from skimage import io
 import tensorflow as tf
-from tqdm import trange
+import torch
+from tqdm import trange, tqdm
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from models.loss import Losses
-from utils.dataGenerator import generatePatchesPerImgSet
+from utils.utils import generatePatchesPerImgSet
+from utils.parseConfig import parseConfig
 
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--preds', type=str, default='evaluate/preds')
-    parser.add_argument('--hr', type=str, default='/home/mark/DataBank/PROBA-V-CHKPT/trimmedArrayDir')
-    parser.add_argument('--norm', type=str, default='/home/mark/DataBank/probav_data/norm.csv')
+    parser.add_argument('--cfg', type=str, default='cfg/p16t12c85r12pre19.cfg')
+    parser.add_argument('--toCompare', type=str, default='/home/mark/PROBA-V/trainout_p16t9c85r12pre19')
+    parser.add_argument('--benchmark', type=str, default='/home/mark/PROBA-V/trainout_p16t9c85r12pre19_benchmark')
     opt = parser.parse_args()
     return opt
 
 
 # TODO: COMPLETE THIS SCRIPT
-def main():
-    predImgFname = os.listdir(opt.preds)
+def main(config, opt):
     patchSize = 128
 
-    allImg = loadHRImages()
+    allImg = loadHRImages(config['preprocessing_out'])
 
     allImgMsk = generatePatchesPerImgSet(allImg, patchSize, patchSize)
     del allImg
 
-    currBest = loadImagesIntoArray(
-        '/home/mark/PROBA-V/trainout_p16t9c85r12pre19_BENCHMARK')
+    currBest = loadImagesIntoArray(opt.benchmark)
     currBest = generatePatches(currBest, patchSize, patchSize)
-    toCompare = loadImagesIntoArray('/home/mark/PROBA-V/trainout_p16t9c85r12pre19')
+    toCompare = loadImagesIntoArray(opt.toCompare)
     toCompare = generatePatches(toCompare, patchSize, patchSize)
 
     currBest = currBest.transpose((0, 2, 3, 1))
@@ -42,16 +42,17 @@ def main():
     allImgMsk = allImgMsk.transpose((0, 2, 3, 1))
     currPSNR, compPSNR = calcRelativePSNR(currBest, toCompare, allImgMsk)
 
-    fig, ax = plt.subplots(figsize=(5, 5))
+    fig, ax = plt.subplots(figsize=(8, 8))
 
     ax.scatter(currPSNR, compPSNR, edgecolors='k', alpha=0.6)
 
-    ax.set_xlim([30, 70])
-    ax.set_ylim([30, 70])
-    ax.plot([30, 70], [30, 70], 'red', zorder=1)
-    ax.set_xlabel('p16t9c85r12pre19_BENCHMARK')
-    ax.set_ylabel('p16t9c85r12pre19')
+    ax.set_xlim([20, 70])
+    ax.set_ylim([20, 70])
+    ax.plot([20, 70], [30, 70], 'red', zorder=1)
+    ax.set_xlabel('cPSNR(dB) Benchmark')
+    ax.set_ylabel('cPSNR(dB) Candidate')
     fig.show()
+    fig.savefig('comparison.png', dpi=500)
 
 
 def calcRelativePSNR(patchPredOne, patchPredTwo, patchHR):
@@ -84,8 +85,8 @@ def loadImagesIntoArray(path):
     return imgs
 
 
-def loadHRImages():
-    dirName = '/home/mark/DataBank/PROBA-V-CHKPT/resolverDir'
+def loadHRImages(basename):
+    dirName = os.path.join(basename, 'resolverDir')
     red = 'TRAINimgHR_RED.npy'
     nir = 'TRAINimgHR_NIR.npy'
 
@@ -176,3 +177,9 @@ def padding(img, H, W, C):
     zimg[H+2:H+4, W+2:W+4, :C] = img[H-1, W-1, :C]
     zimg[0:2, W+2:W+4, :C] = img[0, W-1, :C]
     return zimg
+
+
+if __name__ == '__main__':
+    opt = parser()
+    config = parseConfig(opt.cfg)
+    main(config, opt)

@@ -59,11 +59,100 @@ class WDSRConv3D:
         for i in range(numResBlocks):
             x = self.ResConv3D(x, numFilters, expRate, decayRate, kernelSize, i)
 
-        x = self.ConvReduceAndUpscale(x, numImgLR, scale, numFilters, kernelSize) if numImgLR == 9 else \
-            self.ConvReduceAndUpscalev2(x, numImgLR, scale, numFilters, kernelSize)  # numImgLR == 7
+        if numImgLR == 7:
+            x = self.ConvReduceAndUpscalev2(x, numImgLR, scale, numFilters, kernelSize)
+        elif numImgLR == 9:
+            x = self.ConvReduceAndUpscale(x, numImgLR, scale, numFilters, kernelSize)
+        elif numImgLR == 12:
+            x = self.ConvReduceAndUpscalev3(x, numImgLR, scale, numFilters, kernelSize)
+        elif numImgLR == 19:
+            x = self.ConvReduceAndUpscaleEx(x, numImgLR, scale, numFilters, kernelSize)
+
         x = Reshape((patchSizeLR, patchSizeLR, scale*scale), name='reshapeMain')(x)
         #  See https://arxiv.org/abs/1609.05158
         x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsMain')(x)  # Pixel Shuffle!
+        return x
+
+    def ConvReduceAndUpscaleEx(self, x: tf.Tensor, numImgLR: int, scale: int, numFilters: int, kernelSize: tuple):
+        '''EXPERIMENTAL'''
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [2, 2], [2, 2], [2, 2], [0, 0]],
+                                    mode='reflect'), name=f'convReducePad_{1}')(x)
+        x = self.weightNormedConv3D(numFilters, (5, 5, 5), padding='valid',
+                                    activation='relu', name=f'convReducer_{1}')(x)
+
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [2, 2], [2, 2], [1, 1], [0, 0]],
+                                    mode='reflect'), name=f'convReducePad_{2}')(x)
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{2}')(x)
+
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [2, 2], [2, 2], [0, 0], [0, 0]],
+                                    mode='reflect'), name=f'convReducePad_{3}')(x)
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{3}')(x)
+
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [2, 2], [2, 2], [0, 0], [0, 0]],
+                                    mode='reflect'), name=f'convReducePad_{4}')(x)
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{4}')(x)
+
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],
+                                    mode='reflect'), name=f'convReducePad_{5}')(x)
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{5}')(x)
+
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{6}')(x)
+
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{7}')(x)
+
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{8}')(x)
+
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{9}')(x)
+
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{10}')(x)
+
+        # Upscale block
+        x = self.weightNormedConv3D(outChannels=scale*scale, kernelSize=kernelSize,
+                                    padding='valid', name='upscaleConv1')(x)
+        return x
+
+    def ConvReduceAndUpscalev3(self, x: tf.Tensor, numImgLR: int, scale: int, numFilters: int, kernelSize: tuple):
+        '''used numLRImg 12 config'''
+        # Conv Reducer
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [2, 2], [2, 2], [0, 3], [0, 0]],
+                                    mode='reflect'), name=f'convReducePad_{1}')(x)
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{1}')(x)
+
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [2, 2], [2, 2], [0, 2], [0, 0]],
+                                    mode='reflect'), name=f'convReducePad_{2}')(x)
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{2}')(x)
+
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],
+                                    mode='reflect'), name=f'convReducePad_{3}')(x)
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{3}')(x)
+
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{4}')(x)
+
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{5}')(x)
+
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{6}')(x)
+
+        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
+                                    activation='relu', name=f'convReducer_{7}')(x)
+
+        # Upscale block
+        x = self.weightNormedConv3D(outChannels=scale*scale, kernelSize=kernelSize,
+                                    padding='valid', name='upscaleConv1')(x)
         return x
 
     def ConvReduceAndUpscale(self, x: tf.Tensor, numImgLR: int, scale: int, numFilters: int, kernelSize: tuple):
