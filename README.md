@@ -112,7 +112,7 @@ python3 test.py --cfg cfg/p16t9c85r12.cfg \
 This script is for comparing two model results. It computes patches cPSNR and plots them in a, well, scatter plot.
 The x-axis is the cPSNR of the benchmark model train/validation results (in my case the train/validation dataset that got me the top 2 spot). The y-axis is for the candidate model train/validation results. The script should look something like this.
 
-<p align="center"> <img src="img/comparison_t7r8.png"> </p>
+<p align="center"> <img src="img/comparison.png"> </p>
 
 As you can see, the blue dots are in "favor" of the benchmark model. You can conclude that the model you compared does not produce better SR images than your current top model. Does that make sense?
 

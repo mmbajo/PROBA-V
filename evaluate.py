@@ -17,8 +17,8 @@ from utils.parseConfig import parseConfig
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='cfg/p16t12c85r12pre19.cfg')
-    parser.add_argument('--toCompare', type=str, default='/home/mark/PROBA-V/trainout_p16t9c85r12_TOP2')
-    parser.add_argument('--benchmark', type=str, default='/home/mark/PROBA-V/trainout_p16t9c85r12TOP2')
+    parser.add_argument('--toCompare', type=str, default='/home/mark/top2/trainout_p16t7c85r8pre19')
+    parser.add_argument('--benchmark', type=str, default='/home/mark/top2/trainout_p16t9c85r12_TOP2')
     opt = parser.parse_args()
     return opt
 
@@ -42,16 +42,22 @@ def main(config, opt):
     allImgMsk = allImgMsk.transpose((0, 2, 3, 1))
     currPSNR, compPSNR = calcRelativePSNR(currBest, toCompare, allImgMsk)
 
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
-    ax.scatter(currPSNR, compPSNR, edgecolors='k', alpha=0.6)
+    axs[0].scatter(currPSNR[:594], compPSNR[:594], edgecolors='k', alpha=0.6, color='#cc0e74', label='RED')
+    axs[1].scatter(currPSNR[594:], compPSNR[594:], edgecolors='k', alpha=0.6, color='#916dd5', label='NIR')
+    axs[0].set_title(f'RED {patchSize}x{patchSize} Patch Images')
+    axs[1].set_title(f'NIR {patchSize}x{patchSize} Patch Images')
+    for ax in axs:
+        ax.grid(True)
 
-    ax.set_xlim([20, 70])
-    ax.set_ylim([20, 70])
-    ax.plot([20, 70], [20, 70], 'red', zorder=1)
-    ax.set_xlabel('cPSNR(dB) Benchmark')
-    ax.set_ylabel('cPSNR(dB) Candidate')
+        ax.set_xlim([20, 70])
+        ax.set_ylim([20, 70])
+        ax.plot([20, 70], [20, 70], 'green', zorder=1)
+        ax.set_xlabel('cPSNR(dB) Benchmark')
+        ax.set_ylabel('cPSNR(dB) Candidate')
     fig.show()
+    fig.tight_layout()
     fig.savefig('comparison.png', dpi=500)
 
 
