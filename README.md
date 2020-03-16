@@ -110,11 +110,11 @@ python3 test.py --cfg cfg/p16t9c85r12.cfg \
 
 ### About evaluate.py
 This script is for comparing two model results. It computes patches cPSNR and plots them in a, well, scatter plot.
-The x-axis is the cPSNR of the benchmark model train/validation results (in my case the train/validation dataset that got me the top 2 spot). The y-axis is for the candidate model train/validation results. The script should look something like this.
+The x-axis is the cPSNR of the benchmark model train/validation results (in my case the train/validation dataset that got me the top 2 spot). The y-axis is for the candidate model train/validation results. The result of the script should look something like this.
 
 <p align="center"> <img src="img/comparison.png"> </p>
 
-As you can see, the blue dots are in "favor" of the benchmark model. You can conclude that the model you compared does not produce better SR images than your current top model. Does that make sense?
+As you can see, the dots are in "favor" of the benchmark model. You can conclude that the model you compared does not produce better SR images than your current top model. (Does that make sense? I know I am bad so let me add more pics to explain this better.)
 
 To use the script type the following command at the shell. Please use at your own risk. This script is not yet complete. (I'm sorry!)
 
@@ -146,8 +146,9 @@ The preprocessing steps are the following:
 * Filtering out data sets with all its LR images contain clarity below 85%.
 * Picking out k best LR images.
 * Registering the LR images using this [technique](https://scikit-image.org/docs/dev/auto_examples/transform/plot_register_translation.html). I used the clearest of the LR images as the reference frame.
-* Padding the LR images with additional 6 pixels per side which represent the maximum pixel shift that is compensated by the [scoring](https://kelvins.esa.int/proba-v-super-resolution/scoring/).
-* Patching the LR images to 38x38 sizes and the corresponding HR images to 96x96 patches.
+* Padding the LR images with additional 3 pixels per side, with a total of 6 pixels, which represent the maximum pixel shift that is compensated by the [scoring](https://kelvins.esa.int/proba-v-super-resolution/scoring/).
+* Patching the LR images to 22x22 sizes and the corresponding HR images to 48x48 patches.
+* Removing LR patches with clarity below 85%.
 * Removing HR patches with clarity below 85%.
 * Augmenting the data set by flipping.
 * Augmenting the data set by rotating by 90 to 270 degrees with interval of 90.
