@@ -17,8 +17,8 @@ from utils.parseConfig import parseConfig
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='cfg/p16t12c85r12pre19.cfg')
-    parser.add_argument('--toCompare', type=str, default='/home/mark/PROBA-V/trainout_p16t9c85r12pre19')
-    parser.add_argument('--benchmark', type=str, default='/home/mark/PROBA-V/trainout_p16t9c85r12pre19_benchmark')
+    parser.add_argument('--toCompare', type=str, default='/home/mark/PROBA-V/trainout_p16t9c85r12_TOP2')
+    parser.add_argument('--benchmark', type=str, default='/home/mark/PROBA-V/trainout_p16t9c85r12TOP2')
     opt = parser.parse_args()
     return opt
 
@@ -48,7 +48,7 @@ def main(config, opt):
 
     ax.set_xlim([20, 70])
     ax.set_ylim([20, 70])
-    ax.plot([20, 70], [30, 70], 'red', zorder=1)
+    ax.plot([20, 70], [20, 70], 'red', zorder=1)
     ax.set_xlabel('cPSNR(dB) Benchmark')
     ax.set_ylabel('cPSNR(dB) Candidate')
     fig.show()

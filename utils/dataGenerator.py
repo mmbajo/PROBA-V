@@ -15,6 +15,7 @@ import numpy as np
 import glob
 import os
 import gc
+import math
 
 import logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
@@ -22,7 +23,7 @@ logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', default='cfg/p8t9c85r12.cfg', type=str)
+    parser.add_argument('--cfg', default='cfg/p16t9c85r12.cfg', type=str)
     parser.add_argument('--band', default='NIR', type=str)
     opt = parser.parse_args()
     return opt
@@ -36,19 +37,14 @@ def main(config):
     trimmedArrayDir = os.path.join(cleanDataDir, 'trimmedArrayDir')
     patchesDir = os.path.join(cleanDataDir, 'patchesDir')
     trimmedPatchesDir = os.path.join(cleanDataDir, 'trimmedPatchesDir')
+    resolverDir = os.path.join(cleanDataDir, 'resolverDir')
     augmentedPatchesDir = os.path.join(cleanDataDir, 'augmentedPatchesDir')
 
     # Check validity of directories
-    if not os.path.exists(arrayDir):
-        os.makedirs(arrayDir)
-    if not os.path.exists(trimmedArrayDir):
-        os.makedirs(trimmedArrayDir)
-    if not os.path.exists(patchesDir):
-        os.makedirs(patchesDir)
-    if not os.path.exists(trimmedPatchesDir):
-        os.makedirs(trimmedPatchesDir)
-    if not os.path.exists(augmentedPatchesDir):
-        os.makedirs(augmentedPatchesDir)
+    directories = [arrayDir, trimmedArrayDir, patchesDir, trimmedPatchesDir, resolverDir, augmentedPatchesDir]
+    for dir in directories:
+        if not os.path.exists(dir):
+            os.makedirs(dir)
 
     # CHECKPOINT 1 - RAW DATA LOAD AND SAVE
     if 1 in config['ckpt']:
@@ -71,10 +67,18 @@ def main(config):
         allImgLR, allMskLR, allImgHR, allMskHR = TRAIN
         allImgMskLR = registerImages(allImgLR, allMskLR)  # np.ma.masked_array
         allImgMskHR = convertToMaskedArray(allImgHR, allMskHR)  # np.ma.masked_array
-        trmImgMskLR, trmImgMskHR = removeCorruptedTrainImageSets(
+
+        allImgMskHR.dump(os.path.join(resolverDir, f'TRAINimgHR_{band}.npy'))
+        trmImgMskLR, trmImgMskHR, imgSetRemoved = removeCorruptedTrainImageSets(
             allImgMskLR, allImgMskHR, clarityThreshold=config['low_res_threshold'])
+
+        start = 0 if band == 'RED' else 594
+        np.savetxt(f'removedTrainSets{band}.txt', imgSetRemoved+start)
+        if len(imgSetRemoved):
+            print(f'[ WARNING ] Imgsets {imgSetRemoved} were removed')
         trmImgMskLR = pickClearLRImgsPerImgSet(
-            trmImgMskLR, numImgToPick=config['num_low_res_imgs'], clarityThreshold=config['low_res_threshold'])
+            trmImgMskLR, numImgToPick=config['num_low_res_imgs_pre'], clarityThreshold=config['low_res_threshold'])
+        assert (trmImgMskLR.shape == trmImgMskLR.mask.shape), 'Mask and Array shapes do not match!'
 
         # Process the test dataset
         logging.info(f'Processing {band} test dataset...')
@@ -82,11 +86,9 @@ def main(config):
         allImgMskLRTest = registerImages(allImgLRTest, allMskLRTest)  # np.ma.masked_array
         trmImgMskLRTest = removeCorruptedTestImageSets(allImgMskLRTest, clarityThreshold=config['low_res_threshold'])
         trmImgMskLRTest = pickClearLRImgsPerImgSet(
-            trmImgMskLRTest, numImgToPick=config['num_low_res_imgs'], clarityThreshold=config['low_res_threshold'])
+            trmImgMskLRTest, numImgToPick=config['num_low_res_imgs_pre'], clarityThreshold=config['low_res_threshold'])
 
         logging.info(f'Saving {band} trimmed dataset...')
-        if not os.path.exists(trimmedArrayDir):
-            os.makedirs(trimmedArrayDir)
         trmImgMskLR.dump(os.path.join(trimmedArrayDir, f'TRAINimgLR_{band}.npy'))
         trmImgMskHR.dump(os.path.join(trimmedArrayDir, f'TRAINimgHR_{band}.npy'))
         trmImgMskLRTest.dump(os.path.join(trimmedArrayDir, f'TESTimgLR_{band}.npy'))
@@ -96,6 +98,7 @@ def main(config):
         # Generate patches
         logging.info(f'Loading TEST {band} LR patch dataset...')
         trmImgMskLRTest = np.load(os.path.join(trimmedArrayDir, f'TESTimgLR_{band}.npy'), allow_pickle=True)
+        assert (trmImgMskLRTest.shape == trmImgMskLRTest.mask.shape), 'Mask and Array shapes do not match!'
         logging.info(f'Generating TEST {band} LR Patches...')
         numImgSet, numImgPerImgSet, C, _, _ = trmImgMskLRTest.shape
         # padding with size of Loss Crop cropBorder
@@ -109,9 +112,11 @@ def main(config):
 
         patchesLR = generatePatches(
             trmImgMskLRTest, patchSize=config['patch_size'] + config['max_shift'], stride=config['patch_size'])
+        assert (patchesLR.shape == patchesLR.mask.shape), 'Mask and Array shapes do not match!'
         patchesLR = patchesLR.reshape((numImgSet, -1, numImgPerImgSet, C,
                                        config['patch_size'] + config['max_shift'],
                                        config['patch_size'] + config['max_shift']))
+        assert (patchesLR.shape == patchesLR.mask.shape), 'Mask and Array shapes do not match!'
         logging.info(f'Saving {band} LR Patches...')
         patchesLR.dump(os.path.join(patchesDir, f'TESTpatchesLR_{band}.npy'), protocol=4)
         del trmImgMskLRTest
@@ -120,6 +125,7 @@ def main(config):
 
         logging.info(f'Loading TRAIN {band} LR patch dataset...')
         trmImgMskLR = np.load(os.path.join(trimmedArrayDir, f'TRAINimgLR_{band}.npy'), allow_pickle=True)
+        assert (trmImgMskLR.shape == trmImgMskLR.mask.shape), 'Mask and Array shapes do not match!'
 
         logging.info(f'Generating TRAIN {band} LR Patches...')
         numImgSet, numImgPerImgSet, C, H, W = trmImgMskLR.shape
@@ -133,9 +139,11 @@ def main(config):
 
         patchesLR = generatePatches(
             trmImgMskLR, patchSize=config['patch_size'] + config['max_shift'], stride=config['patch_stride'])
+        assert (patchesLR.shape == patchesLR.mask.shape), 'Mask and Array shapes do not match!'
         patchesLR = patchesLR.reshape((numImgSet, -1, numImgPerImgSet, C,
                                        config['patch_size'] + config['max_shift'],
                                        config['patch_size'] + config['max_shift']))
+        assert (patchesLR.shape == patchesLR.mask.shape), 'Mask and Array shapes do not match!'
         logging.info(f'Saving {band} LR Patches...')
         patchesLR.dump(os.path.join(patchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
         del trmImgMskLR
@@ -144,14 +152,18 @@ def main(config):
 
         logging.info(f'Loading TRAIN {band} HR patch dataset...')
         trmImgMskHR = np.load(os.path.join(trimmedArrayDir, f'TRAINimgHR_{band}.npy'), allow_pickle=True)
+        assert (trmImgMskHR.shape == trmImgMskHR.mask.shape), 'Mask and Array shapes do not match!'
         logging.info(f'Generating TRAIN {band} HR Patches...')
         numImgSet, numImgPerImgSet, C, Hhr, Whr = trmImgMskHR.shape
         # Compute upsampleScale
         upsampleScale = Hhr // H
         patchesHR = generatePatches(trmImgMskHR, patchSize=config['patch_size'] *
                                     upsampleScale, stride=config['patch_size'] * upsampleScale)
+        assert (patchesHR.shape == patchesHR.mask.shape), 'Mask and Array shapes do not match!'
         patchesHR = patchesHR.reshape((numImgSet, -1, numImgPerImgSet, C, config['patch_size'] *
                                        upsampleScale, config['patch_size'] * upsampleScale))
+        assert (patchesHR.shape == patchesHR.mask.shape), 'Mask and Array shapes do not match!'
+
         logging.info(f'Saving {band} HR Patches...')
         patchesHR.dump(os.path.join(patchesDir, f'TRAINpatchesHR_{band}.npy'), protocol=4)
         del trmImgMskHR
@@ -163,22 +175,29 @@ def main(config):
         logging.info(f'Loading {band} test LR Patches...')
         trmPatchesLRTest = np.load(os.path.join(patchesDir, f'TESTpatchesLR_{band}.npy'), allow_pickle=True)
         logging.info(f'Loading {band} train LR Patches...')
-        patchesLR = np.load(os.path.join(patchesDir, f'TRAINpatchesLR_{band}.npy'), allow_pickle=True)
-        logging.info(f'Loading {band} train HR Patches...')
-        patchesHR = np.load(os.path.join(patchesDir, f'TRAINpatchesHR_{band}.npy'), allow_pickle=True)
-        logging.info(f'Remove corrupted train {band} Patch sets...')
-        trmPatchesLR, trmPatchesHR = removeCorruptedTrainPatchSets(
-            patchesLR, patchesHR, clarityThreshold=config['high_res_threshold'])
+        trmPatchesLR = np.load(os.path.join(patchesDir, f'TRAINpatchesLR_{band}.npy'), allow_pickle=True)
 
         logging.info(f"Filtering {band} test LR patches...")
         for i, patchThreshold in enumerate(config['low_res_patch_thresholds']):
             print(f'[***************** TEST LR DATA THRESHOLD {patchThreshold} PASS {i+1} *****************]')
-            trmPatchesLRTest = pickClearPatchesLR(trmPatchesLRTest, clarityThreshold=patchThreshold)
+            trmPatchesLRTest = pickClearPatchesLR(trmPatchesLRTest, k=config['num_low_res_imgs'],
+                                                  clarityThreshold=patchThreshold)
 
         logging.info(f"Filtering {band} train LR patches...")
         for i, patchThreshold in enumerate(config['low_res_patch_thresholds']):
             print(f'[***************** TRAIN LR DATA THRESHOLD {patchThreshold} PASS {i+1} *****************]')
-            trmPatchesLR = pickClearPatchesLR(trmPatchesLR, clarityThreshold=patchThreshold)
+            trmPatchesLR = pickClearPatchesLR(trmPatchesLR, k=config['num_low_res_imgs'],
+                                              clarityThreshold=patchThreshold)
+
+        logging.info(f"Saving for resolving, {band} test and train patches with shapes {trmPatchesLRTest.shape}...")
+        trmPatchesLRTest.dump(os.path.join(resolverDir, f'TESTpatchesLR_{band}.npy'), protocol=4)
+        trmPatchesLR.dump(os.path.join(resolverDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
+
+        logging.info(f'Loading {band} train HR Patches...')
+        trmPatchesHR = np.load(os.path.join(patchesDir, f'TRAINpatchesHR_{band}.npy'), allow_pickle=True)
+        logging.info(f'Remove corrupted train {band} Patch sets...')
+        trmPatchesLR, trmPatchesHR = removeCorruptedTrainPatchSets(
+            trmPatchesLR, trmPatchesHR, clarityThreshold=config['high_res_threshold'])
 
         logging.info(f"Deleting {band} train HR patches that has below {config['high_res_threshold']} clarity...")
         trmPatchesLR, trmPatchesHR = pickClearPatches(
@@ -186,12 +205,15 @@ def main(config):
 
         # Reshape to [N, C, D, H, W] for PyTorch training
         logging.info(f'Reshaping {band} train patches...')
-        trmPatchesLR = trmPatchesLR.transpose((0, 3, 4, 1, 2))  # shape is (numImgSet, H, W, numLRImg, C)
-        trmPatchesHR = trmPatchesHR.transpose((0, 3, 4, 1, 2))
+        # shape is (numImgSet, H, W, numLRImg, C)
+        trmPatchesLRTest = trmPatchesLRTest[:, :, :config['num_low_res_imgs'], :, :, :]
+        trmPatchesLR = trmPatchesLR.transpose((0, 3, 4, 1, 2))[:, :, :, :config['num_low_res_imgs'], :]
+        trmPatchesHR = trmPatchesHR.transpose((0, 3, 4, 1, 2))[:, :, :, :config['num_low_res_imgs'], :]
         trmPatchesHR = trmPatchesHR.squeeze(4)  # (numImgSet, H, W, C)
 
-        logging.info(f'Saving {band} train patches...')
+        logging.info(f'Saving {band} test patches with shapes {trmPatchesLRTest.shape}...')
         trmPatchesLRTest.dump(os.path.join(trimmedPatchesDir, f'TESTpatchesLR_{band}.npy'), protocol=4)
+        logging.info(f'Saving {band} train patches...')
         trmPatchesLR.dump(os.path.join(trimmedPatchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
         trmPatchesHR.dump(os.path.join(trimmedPatchesDir, f'TRAINpatchesHR_{band}.npy'), protocol=4)
 
@@ -247,7 +269,7 @@ def augmentByShufflingLRImgs(patchLR: np.ma.masked_array, numPermute=9):
         idx = np.random.permutation(np.arange(numLRImg))
         shuffled = patchLR[:, :, :, idx, :]
         cacheLR.append(shuffled)
-    patchLR = np.concatenate(cacheLR)
+    patchLR = np.ma.concatenate(cacheLR)
     return patchLR
 
 
@@ -256,7 +278,7 @@ def augmentByFlipping(patches: np.ma.masked_array):
     imgFlipH = np.flip(patches, axis=(2))
     imgFlipVH = np.flip(patches, axis=(1, 2))
 
-    allImgMsk = np.concatenate((patches, imgFlipV, imgFlipH, imgFlipVH))
+    allImgMsk = np.ma.concatenate((patches, imgFlipV, imgFlipH, imgFlipVH))
     return allImgMsk
 
 
@@ -265,15 +287,16 @@ def augmentByRotating(patches: np.ma.masked_array):
     img180 = np.rot90(patches, k=2, axes=(1, 2))
     img270 = np.rot90(patches, k=3, axes=(1, 2))
 
-    allImgMsk = np.concatenate((patches, img90, img180, img270))
+    allImgMsk = np.ma.concatenate((patches, img90, img180, img270))
     return allImgMsk
 
 
-def pickClearPatchesLR(patchesLR: np.ma.masked_array,
+def pickClearPatchesLR(patchesLR: np.ma.masked_array, k: int,
                        clarityThreshold: float) -> List[np.ma.masked_array]:
     '''
     Input:
     patchesLR: np.ma.masked_array[numImgSet, numPatches, numLowResImg, C, H, W]
+    k: num of lr images to pick
     clarityThreshold: float
 
     Output:
@@ -286,12 +309,14 @@ def pickClearPatchesLR(patchesLR: np.ma.masked_array,
     numImgSet, numPatches, numLowResImg, C, H, W = patchesLR.shape
     cache = []
     for imgSet in tqdm(patchesLR, desc=desc):
-        cleanedImgSet, countNotGood, countNotReplaced = removeAndReplaceDirtyFrames(imgSet, clarityThreshold)
-        cache.append(cleanedImgSet)
+        cleanedImgSet, countNotGood, countNotReplaced = removeAndReplaceDirtyFrames(imgSet, k, clarityThreshold)
+        cache.append(np.expand_dims(cleanedImgSet, axis=0))
         count += countNotGood
         countNotReplacedAll += countNotReplaced
-    trimmedPatchesLR = np.ma.array(cache)
-    notGood = (count/(numImgSet*numPatches) * 100)
+    trimmedPatchesLR = np.ma.concatenate(cache)
+    assert trimmedPatchesLR.shape == trimmedPatchesLR.mask.shape, \
+        f'Patches do not have matching img and msk! {trimmedPatchesLR.shape}->{trimmedPatchesLR.mask.shape}'
+    notGood = (count/(numImgSet*numPatches*numLowResImg) * 100)
     notReplaced = countNotReplacedAll/count * 100
     if notGood > 50:
         message = 'WARNING'
@@ -302,36 +327,54 @@ def pickClearPatchesLR(patchesLR: np.ma.masked_array,
     return trimmedPatchesLR
 
 
-def removeAndReplaceDirtyFrames(imgSet: np.ma.masked_array, clarityThreshold: float) -> np.ma.masked_array:
+def removeAndReplaceDirtyFrames(imgSet: np.ma.masked_array, k: int, clarityThreshold: float) -> np.ma.masked_array:
     '''
     Input:
     imgSet: np.ma.masked_array[numPatches, numLowResImg, C, H, W]
+    k: num of lr images to pick
     clarityThreshold: float
 
     Output:
     cleanPatchesLR: np.ma.masked_array[numPatches, numLowResImg, C, H, W]
     '''
-    cache = []
+    cacheImg = []
+    cacheMsk = []
     numPatches, numLowResImg, C, H, W = imgSet.shape
     count = 0
     countNotReplaced = 0
     for patch in imgSet:
         # [numLowResImg, C, H, W]
+        assert patch.shape == patch.mask.shape, \
+            f'Patches do not have matching img and msk! {patch.shape}->{patch.mask.shape}'
         booleanMask = np.array([np.count_nonzero(lr.mask)/(H * W) < (1-clarityThreshold) for lr in patch])
         trimmedPatch = patch[booleanMask]
+        assert trimmedPatch.shape == trimmedPatch.mask.shape, \
+            f'Patches do not have matching img and msk! {trimmedPatch.shape}->{trimmedPatch.mask.shape}'
+
         if len(trimmedPatch) == 0:
-            cache.append(patch)
+            trimmedPatch = patch[:]
             count += numLowResImg
             countNotReplaced += numLowResImg
-            continue
-        endPatch = patch[booleanMask]
-        count += (numLowResImg - len(endPatch))
-        while len(endPatch) < numLowResImg:
-            endPatch = np.ma.concatenate((endPatch, trimmedPatch))
+        else:
+            count += (numLowResImg - len(trimmedPatch))
 
-        endPatch = endPatch[:numLowResImg]
-        cache.append(endPatch)
-    return np.ma.array(cache), count, countNotReplaced
+        numCopy = math.ceil(k/len(trimmedPatch))
+        endPatch = np.ma.copy(trimmedPatch)
+        endPatch = np.tile(endPatch, (numCopy, 1, 1, 1))
+
+        sortedIdx = np.argsort([np.sum(lrImg.mask, axis=(0, 1, 2)) for lrImg in endPatch])
+        endPatch = endPatch[sortedIdx]
+        endPatch = endPatch[:k]
+        assert endPatch.shape == endPatch.mask.shape, \
+            f'Patches do not have matching img and msk! {endPatch.shape}->{endPatch.mask.shape}'
+        cacheImg.append(endPatch)
+        cacheMsk.append(endPatch.mask)
+    cleanedImg = np.array(cacheImg)
+    cleanedMsk = np.array(cacheMsk)
+    cleanedImgSet = np.ma.array(cleanedImg, mask=cleanedMsk)
+    assert cleanedImgSet.shape == cleanedImgSet.mask.shape, \
+        f'Patches do not have matching img and msk! {cleanedImgSet.shape}->{cleanedImgSet.mask.shape}'
+    return cleanedImgSet, count, countNotReplaced
 
 
 def pickClearPatches(patchesLR: np.ma.masked_array,
@@ -435,6 +478,8 @@ def removeCorruptedTrainPatchSets(patchesLR: np.ma.masked_array,
                             for patchSet in tqdm(patchesHR, desc=desc)])
     trimmedPatchesLR = patchesLR[booleanMask]
     trimmedPathcesHR = patchesHR[booleanMask]
+    assert (trimmedPatchesLR.shape == trimmedPatchesLR.mask.shape), 'Mask and Array shapes do not match!'
+    assert (trimmedPathcesHR.shape == trimmedPathcesHR.mask.shape), 'Mask and Array shapes do not match!'
     return (trimmedPatchesLR, trimmedPathcesHR)
 
 
@@ -551,6 +596,7 @@ def registerImagesInSet(imgLR: np.ndarray, mskLR: np.ndarray) -> np.ma.masked_ar
                     with the same dimension as the data.
     https://docs.scipy.org/doc/numpy-1.15.0/reference/maskedarray.baseclass.html#numpy.ma.MaskedArray.data
     '''
+    assert (imgLR.shape == mskLR.shape), 'Input shape does not match!'
     sortedIdx = np.argsort([-np.count_nonzero(msk) for msk in mskLR])
     clearestToDirtiestImg = imgLR[sortedIdx]
     clearestToDirtiestMsk = mskLR[sortedIdx]
@@ -560,8 +606,10 @@ def registerImagesInSet(imgLR: np.ndarray, mskLR: np.ndarray) -> np.ma.masked_ar
             regImgMskLR = np.expand_dims(np.ma.masked_array(img, mask=~msk), axis=0)
         else:
             regImg, regMsk = registerFrame(img, msk.astype(bool), referImg)
-            mskdArray = np.expand_dims(np.ma.masked_array(regImg, mask=~(regMsk > 0)), axis=0)
+            mskdArray = np.expand_dims(np.ma.masked_array(regImg, mask=~regMsk), axis=0)
             regImgMskLR = np.ma.concatenate((regImgMskLR, mskdArray))
+    assert (regImgMskLR.shape ==
+            regImgMskLR.mask.shape), f'Mask and Array shapes do not match! {regImgMskLR.shape} -> {regImgMskLR.mask.shape}'
     return regImgMskLR
 
 
@@ -588,8 +636,8 @@ def registerFrame(img: np.ndarray, msk: np.ndarray, referenceImg: np.ndarray, te
         regImg = regImg.real
 
         regMsk = fourier_shift(np.fft.fftn(msk), shiftArray)
-        regMsk = np.fft.ifftn(regMsk)
-        regMsk = regMsk.real
+        regMsk = np.round(np.fft.ifftn(regMsk).real)
+        regMsk = regMsk.astype(np.bool)
     return (regImg, regMsk)
 
 
@@ -610,11 +658,12 @@ def convertToMaskedArray(imgSets: np.ndarray, mskSets: np.ndarray) -> np.ma.mask
     imgMskSets = np.ma.array([np.ma.masked_array(img, mask=~msk)
                               for img, msk in zip(imgSets, mskSets)])  # [numImgSet, channel, height, width]
     imgMskSets = np.expand_dims(imgMskSets, axis=1)  # [numImgSet, 1, channel, height, width]
+    assert (imgMskSets.shape == imgMskSets.mask.shape), 'Mask and Array shapes do not match!'
     return imgMskSets
 
 
 def removeCorruptedTrainImageSets(imgMskLR: np.ma.masked_array, imgMskHR: np.ma.masked_array,
-                                  clarityThreshold: float) -> Tuple[np.ma.masked_array, np.ma.masked_array]:
+                                  clarityThreshold: float):
     '''
     Remove imageset if ALL its LR frames is less than the given clarity threshold.
 
@@ -630,9 +679,13 @@ def removeCorruptedTrainImageSets(imgMskLR: np.ma.masked_array, imgMskHR: np.ma.
     '''
     desc = '[ INFO ] Removing corrupted ImageSets  '
     booleanMask = np.array([isImageSetNotCorrupted(imgSet, clarityThreshold) for imgSet in tqdm(imgMskLR, desc=desc)])
+    imgSetRemoved = np.arange(len(imgMskLR))[~booleanMask]
     trimmedImgMskLR = imgMskLR[booleanMask]
     trimmedImgMskHR = imgMskHR[booleanMask]
-    return (trimmedImgMskLR, trimmedImgMskHR)
+    for imgset in trimmedImgMskLR:
+        assert (imgset.shape ==
+                imgset.mask.shape), f'Mask and Array shapes do not match! {imgset.shape} -> {imgset.mask.shape}'
+    return trimmedImgMskLR, trimmedImgMskHR, imgSetRemoved
 
 
 def removeCorruptedTestImageSets(imgMskLR: np.ma.masked_array,
@@ -696,11 +749,11 @@ def pickClearLRImgsPerImgSet(imgMskLR: np.ma.masked_array,
     numImgPerImgSet, C, H, W = imgMskLR[0].shape
     for imgMsk in tqdm(imgMskLR, desc=desc):
         clearData, countDuplicates = pickClearImg(filterImgMskSet(imgMsk, clarityThreshold), numImgToPick=numImgToPick)
-        cache.append(clearData)
+        cache.append(np.expand_dims(clearData, axis=0))
         count += countDuplicates
     duplicates = (count/(len(imgMskLR)*numImgPerImgSet))*100
     print(f'[ INFO ] Among the all the LR images, {duplicates:.2f}% are duplicates of high quality frames.')
-    return np.ma.array(cache)
+    return np.ma.concatenate(cache)
 
 
 def pickClearImg(imgMsk: np.ma.masked_array, numImgToPick: int) -> np.ma.masked_array:
@@ -721,7 +774,7 @@ def pickClearImg(imgMsk: np.ma.masked_array, numImgToPick: int) -> np.ma.masked_
     if numImgToPick < len(imgMsk):
         trimmedImgMsk = sortedImgMskArray[:numImgToPick]
     else:
-        trimmedImgMsk = np.copy(sortedImgMskArray)
+        trimmedImgMsk = np.ma.copy(sortedImgMskArray)
         count += (numImgToPick - len(trimmedImgMsk))
         while len(trimmedImgMsk) < numImgToPick:
             shuffledIndices = np.random.choice(sortedIndices, size=len(sortedIndices), replace=False)

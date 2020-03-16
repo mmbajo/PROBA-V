@@ -1,6 +1,8 @@
 from typing import List, Tuple, Dict
 
 import tensorflow as tf
+import torch
+import torch.functional as F
 from scipy.ndimage import fourier_shift, shift
 from skimage.feature import register_translation, masked_register_translation
 from skimage.transform import rescale
@@ -40,6 +42,36 @@ def loadValDataAsTFDataSet(X, y, y_mask, valSteps, batchSize, bufferSize):
 def cropImage(imgBatch: tf.Tensor, startIdxH: int, lengthHeight: int,
               startIdxW: int, lengthWidth: int) -> tf.Tensor:
     return tf.cast(imgBatch[:, startIdxH: startIdxH + lengthHeight, startIdxW: startIdxW + lengthWidth, :], tf.float32)
+
+
+def generatePatchesPerImgSet(images: np.ma.masked_array, patchSize: int, stride: int) -> np.ma.masked_array:
+    '''
+    Generate patches of images systematically.
+
+    Input:
+    images: np.ma.masked_array[numImgPerImgSet, channels, height, width]
+    patchSize: int
+    stride: int
+
+    Output:
+    np.ma.masked_array[numImgPerImgSet * numPatches, channels, patchSize, patchSize]
+    '''
+    tensorImg = torch.tensor(images)
+    tensorMsk = torch.tensor(images.mask)
+
+    numMskPerImgSet, channels, height, width = images.shape
+
+    patchesImg = tensorImg.unfold(0, numMskPerImgSet, numMskPerImgSet).unfold(
+        1, channels, channels).unfold(2, patchSize, stride).unfold(3, patchSize, stride)
+    patchesImg = patchesImg.reshape(-1, channels, patchSize, patchSize)  # [numImgPerImgSet * numPatches, C, H, W]
+    patchesImg = patchesImg.numpy()
+
+    patchesMsk = tensorMsk.unfold(0, numMskPerImgSet, numMskPerImgSet).unfold(
+        2, patchSize, stride).unfold(3, patchSize, stride)
+    patchesMsk = patchesMsk.reshape(-1, channels, patchSize, patchSize)
+    patchesMsk = patchesMsk.numpy()
+
+    return np.ma.masked_array(patchesImg, mask=patchesMsk)
 
 
 def saveArrays(inputDictionary: Dict, parentDir: str, band: str):

@@ -33,7 +33,7 @@ def parser():
 
 def main(config):
     logger.info('[ INFO ] Loading data...')
-    dataDir = os.path.join(config['preprocessing_out'], 'trimmedPatchesDir')
+    dataDir = os.path.join(config['preprocessing_out'], 'resolverDir')
     patchLR = np.load(os.path.join(dataDir, f'{opt.totest}patchesLR_{opt.band}.npy'), allow_pickle=True)
     patchLR = patchLR.transpose((0, 1, 4, 5, 2, 3))
 
@@ -77,6 +77,12 @@ def main(config):
             i = 1160
     else:
         outDir = config['train_out'] + f'_{basename}'
+        if not os.path.exists(f'removedTrainSets{band}.txt'):
+            toOmit = []
+        else:
+            with open(f'removedTrainSets{band}.txt', 'r') as f:
+                toOmit = f.readlines()
+            toOmit = [int(float(x.split('\n')[0])) for x in toOmit]
         if band == 'NIR':
             i = 594
         elif band == 'RED':
@@ -87,6 +93,8 @@ def main(config):
 
     logging.info(f'[ SAVE ] Saving predicted images to {outDir}...')
     for img in tqdm(y_preds):
+        while i in toOmit:
+            i += 1
         io.imsave(os.path.join(outDir, f"imgset{'%04d' % i}.png"), img[:, :, 0].astype(np.uint16))
         i += 1
 
