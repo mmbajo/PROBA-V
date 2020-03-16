@@ -40,12 +40,13 @@ def main(config, opt):
     currBest = currBest.transpose((0, 2, 3, 1))
     toCompare = toCompare.transpose((0, 2, 3, 1))
     allImgMsk = allImgMsk.transpose((0, 2, 3, 1))
-    currPSNR, compPSNR = calcRelativePSNR(currBest, toCompare, allImgMsk)
+    REDcurrPSNR, REDcompPSNR = calcRelativePSNR(currBest[:594], toCompare[:594], allImgMsk[:594])
+    NIRcurrPSNR, NIRcompPSNR = calcRelativePSNR(currBest[594:], toCompare[594:], allImgMsk[594:])
 
     fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
-    axs[0].scatter(currPSNR[:594], compPSNR[:594], edgecolors='k', alpha=0.6, color='#cc0e74', label='RED')
-    axs[1].scatter(currPSNR[594:], compPSNR[594:], edgecolors='k', alpha=0.6, color='#916dd5', label='NIR')
+    axs[0].scatter(REDcurrPSNR, REDcompPSNR, edgecolors='k', alpha=0.6, color='#cc0e74', label='RED')
+    axs[1].scatter(NIRcurrPSNR, NIRcompPSNR, edgecolors='k', alpha=0.6, color='#916dd5', label='NIR')
     axs[0].set_title(f'RED {patchSize}x{patchSize} Patch Images')
     axs[1].set_title(f'NIR {patchSize}x{patchSize} Patch Images')
     for ax in axs:
@@ -53,7 +54,7 @@ def main(config, opt):
 
         ax.set_xlim([20, 70])
         ax.set_ylim([20, 70])
-        ax.plot([20, 70], [20, 70], 'green', zorder=1)
+        ax.plot([20, 70], [20, 70], '#08ffc8', zorder=1)
         ax.set_xlabel('cPSNR(dB) Benchmark')
         ax.set_ylabel('cPSNR(dB) Candidate')
     fig.show()
