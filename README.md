@@ -22,6 +22,8 @@ A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int
 pip3 install -r requirements.txt
 ```
 
+My python version is 3.6.9. I used Ubuntu 18.04 OS for this project.
+
 ## Usage
 You should create a new cfg file with the format below. The current repository has a model in it. Should you wish to see the super resolution version of the dataset using my pretrained model, just run the preprocessing script and after that the test.py script and you are good to go. You must first download the data [here](https://kelvins.esa.int/proba-v-super-resolution/data/) and specify the directory of the raw data in the cfg file.
 ### Configuration (cfg) file
@@ -55,6 +57,7 @@ is_grayscale=1                  <Is the input image grayscale? 1. If not, 0.>
 max_shift=6                     <Maximum possible shift to account in loss computation and model building.>
 patch_size=16                   <Base patch size for each low resolution image.>
 patch_stride=16                 <Base patch size for each low resolution image.>
+num_low_res_imgs_pre=9          <Initial pool of low res images prior to clarity filters.>
 low_res_patch_thresholds=0.85   <Clarity Threshold for the low resolution patches.>
 low_res_threshold=0.85          <Clarity Threshold for the low resolution images.>
 high_res_threshold=0.85         <Clarity Threshold for the high resolution images.>
@@ -103,6 +106,22 @@ CUDA_VISIBLE_DEVICES=1 python3 train.py --cfg cfg/p16t9c85r12.cfg \
 ```sh
 python3 test.py --cfg cfg/p16t9c85r12.cfg \
                 --band NIR
+```
+
+### About evaluate.py
+This script is for comparing two model results. It computes patches cPSNR and plots them in a, well, scatter plot.
+The x-axis is the cPSNR of the benchmark model train/validation results (in my case the train/validation dataset that got me the top 2 spot). The y-axis is for the candidate model train/validation results. The script should look something like this.
+
+<p align="center"> <img src="img/comparison_t7r8.png"> </p>
+
+As you can see, the blue dots are in "favor" of the benchmark model. You can conclude that the model you compared does not produce better SR images than your current top model. Does that make sense?
+
+To use the script type the following command at the shell. Please use at your own risk. This script is not yet complete. (I'm sorry!)
+
+```sh
+python3 evaluate.py --cfg cfg/p16t9c85r12.cfg \
+                    --toCompare <folder of SR images produced by your "to compare" model.>
+                    --benchmark <folder of SR images produced by your "benchmark" model.>
 ```
 
 ## The Results
