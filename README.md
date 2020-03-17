@@ -124,6 +124,13 @@ python3 evaluate.py --cfg cfg/p16t9c85r12.cfg \
                     --benchmark <folder of SR images produced by your "benchmark" model.>
 ```
 
+
+### Running TensorBoard
+In case you don't know how to run tensorboard, please use the following command.
+```sh
+tensorboard --logdir <put here the dir you wrote in cfg file model_out section.>
+```
+
 ## The Results
 Here are what I tried. Most of them did not end well. **Posted below is the official score I got from the website.**
 
