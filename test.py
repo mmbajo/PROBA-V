@@ -69,6 +69,13 @@ def main(config):
     y_preds = evaluate(model, patchLR)
 
     band = opt.band.upper()
+    if not os.path.exists(f'removedTrainSets{band}.txt'):
+        toOmit = []
+    else:
+        with open(f'removedTrainSets{band}.txt', 'r') as f:
+            toOmit = f.readlines()
+        toOmit = [int(float(x.split('\n')[0])) for x in toOmit]
+
     if opt.totest == 'TEST':
         outDir = config['test_out'] + f'_{basename}'
         if band == 'NIR':
@@ -77,12 +84,6 @@ def main(config):
             i = 1160
     else:
         outDir = config['train_out'] + f'_{basename}'
-        if not os.path.exists(f'removedTrainSets{band}.txt'):
-            toOmit = []
-        else:
-            with open(f'removedTrainSets{band}.txt', 'r') as f:
-                toOmit = f.readlines()
-            toOmit = [int(float(x.split('\n')[0])) for x in toOmit]
         if band == 'NIR':
             i = 594
         elif band == 'RED':
