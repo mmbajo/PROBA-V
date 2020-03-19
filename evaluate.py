@@ -17,7 +17,8 @@ from utils.parseConfig import parseConfig
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='cfg/p16t12c85r12pre19.cfg')
-    parser.add_argument('--toCompare', type=str, default='/home/mark/top2/trainout_p16t7c85r8pre19')
+    parser.add_argument('--toCompare', type=str,
+                        default='/home/mark/DataBank/PROBA-V-CHKPT/trainout_p16t13c85r12pre19v2')
     parser.add_argument('--benchmark', type=str, default='/home/mark/top2/trainout_p16t9c85r12_TOP2')
     opt = parser.parse_args()
     return opt
@@ -25,7 +26,7 @@ def parser():
 
 # TODO: COMPLETE THIS SCRIPT
 def main(config, opt):
-    patchSize = 128
+    patchSize = 384
 
     allImg = loadHRImages(config['preprocessing_out'])
 
@@ -33,15 +34,25 @@ def main(config, opt):
     del allImg
 
     currBest = loadImagesIntoArray(opt.benchmark)
-    currBest = generatePatches(currBest, patchSize, patchSize)
-    toCompare = loadImagesIntoArray(opt.toCompare)
-    toCompare = generatePatches(toCompare, patchSize, patchSize)
+    redCurrBest = currBest[:594]
+    nirCurrBest = currBest[594:]
+    redCurrBest = generatePatches(redCurrBest, patchSize, patchSize)
+    nirCurrBest = generatePatches(nirCurrBest, patchSize, patchSize)
 
-    currBest = currBest.transpose((0, 2, 3, 1))
-    toCompare = toCompare.transpose((0, 2, 3, 1))
+    toCompare = loadImagesIntoArray(opt.toCompare)
+    redToCompare = toCompare[:594]
+    nirToCompare = toCompare[594:]
+    redToCompare = generatePatches(redToCompare, patchSize, patchSize)
+    nirToCompare = generatePatches(nirToCompare, patchSize, patchSize)
+
+    redCurrBest = redCurrBest.transpose((0, 2, 3, 1))
+    nirCurrBest = nirCurrBest.transpose((0, 2, 3, 1))
+    redToCompare = redToCompare.transpose((0, 2, 3, 1))
+    nirToCompare = nirToCompare.transpose((0, 2, 3, 1))
     allImgMsk = allImgMsk.transpose((0, 2, 3, 1))
-    REDcurrPSNR, REDcompPSNR = calcRelativePSNR(currBest[:594], toCompare[:594], allImgMsk[:594])
-    NIRcurrPSNR, NIRcompPSNR = calcRelativePSNR(currBest[594:], toCompare[594:], allImgMsk[594:])
+
+    REDcurrPSNR, REDcompPSNR = calcRelativePSNR(redCurrBest, redToCompare, allImgMsk[:594])
+    NIRcurrPSNR, NIRcompPSNR = calcRelativePSNR(nirCurrBest, nirToCompare, allImgMsk[594:])
 
     fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
