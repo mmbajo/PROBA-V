@@ -316,7 +316,7 @@ def pickClearPatchesLR(patchesLR: np.ma.masked_array, k: int,
     trimmedPatchesLR = np.ma.concatenate(cache)
     assert trimmedPatchesLR.shape == trimmedPatchesLR.mask.shape, \
         f'Patches do not have matching img and msk! {trimmedPatchesLR.shape}->{trimmedPatchesLR.mask.shape}'
-    notGood = (count/(numImgSet*numPatches*numLowResImg) * 100)
+    notGood = (count/(numImgSet*numPatches*numLowResImg) * 100)  # FIX ME
     notReplaced = countNotReplacedAll/count * 100
     if notGood > 50:
         message = 'WARNING'
@@ -601,11 +601,12 @@ def registerImagesInSet(imgLR: np.ndarray, mskLR: np.ndarray) -> np.ma.masked_ar
     clearestToDirtiestImg = imgLR[sortedIdx]
     clearestToDirtiestMsk = mskLR[sortedIdx]
     referImg = clearestToDirtiestImg[0]
+    referMsk = clearestToDirtiestMsk[0]
     for i, (img, msk) in enumerate(zip(clearestToDirtiestImg, clearestToDirtiestMsk)):
         if i == 0:
             regImgMskLR = np.expand_dims(np.ma.masked_array(img, mask=~msk), axis=0)
         else:
-            regImg, regMsk = registerFrame(img, msk.astype(bool), referImg)
+            regImg, regMsk = registerFrame(img, msk > 0, referImg, referMsk > 0)
             mskdArray = np.expand_dims(np.ma.masked_array(regImg, mask=~regMsk), axis=0)
             regImgMskLR = np.ma.concatenate((regImgMskLR, mskdArray))
     assert (regImgMskLR.shape ==
@@ -613,12 +614,14 @@ def registerImagesInSet(imgLR: np.ndarray, mskLR: np.ndarray) -> np.ma.masked_ar
     return regImgMskLR
 
 
-def registerFrame(img: np.ndarray, msk: np.ndarray, referenceImg: np.ndarray, tech='freq') -> Tuple[np.ndarray, np.ndarray]:
+def registerFrame(img: np.ndarray, msk: np.ndarray,
+                  referenceImg: np.ndarray, referenceMsk: np.ndarray, tech='freq') -> Tuple[np.ndarray, np.ndarray]:
     '''
     Input:
     img: np.ndarray[channel, height, width]
     msk: np.ndarray[channel, height, width]
     referenceImg: np.ndarray[channel, height, width]
+    referenceMsk: np.ndarray[channel, height, width]
 
     Output:
     Tuple(regImg, regMsk)
@@ -626,9 +629,10 @@ def registerFrame(img: np.ndarray, msk: np.ndarray, referenceImg: np.ndarray, te
     regMsk: np.ndarray[channel, height, width]
     '''
     if tech == 'time':
-        shiftArray = masked_register_translation(referenceImg, img, msk)
+        shiftArray = masked_register_translation(referenceImg, img, referenceMsk, msk)
         regImg = shift(img, shiftArray, mode='reflect')
         regMsk = shift(msk, shiftArray, mode='constant', cval=0)
+
     if tech == 'freq':
         shiftArray, _, _ = register_translation(referenceImg, img)
         regImg = fourier_shift(np.fft.fftn(img), shiftArray)
@@ -638,6 +642,7 @@ def registerFrame(img: np.ndarray, msk: np.ndarray, referenceImg: np.ndarray, te
         regMsk = fourier_shift(np.fft.fftn(msk), shiftArray)
         regMsk = np.round(np.fft.ifftn(regMsk).real)
         regMsk = regMsk.astype(np.bool)
+
     return (regImg, regMsk)
 
 
