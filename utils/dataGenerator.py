@@ -2,6 +2,7 @@ from typing import List, Tuple, Dict
 import argparse
 
 from scipy.ndimage import fourier_shift, shift
+from sklearn.model_selection import train_test_split
 from skimage.feature import register_translation, masked_register_translation
 from skimage.transform import rescale
 from skimage import io
@@ -23,13 +24,15 @@ logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', default='cfg/p16t9c85r12.cfg', type=str)
+    parser.add_argument('--cfg', default='cfg/redProjectnoFlip.cfg', type=str)
     parser.add_argument('--band', default='NIR', type=str)
     opt = parser.parse_args()
     return opt
 
 
 def main(config):
+    logging.info(f'[ CFG - INFO ] Using {opt.cfg} as config file...')
+
     rawDataDir = config['raw_data']
     cleanDataDir = config['preprocessing_out']
     band = opt.band
@@ -217,11 +220,30 @@ def main(config):
         trmPatchesLR.dump(os.path.join(trimmedPatchesDir, f'TRAINpatchesLR_{band}.npy'), protocol=4)
         trmPatchesHR.dump(os.path.join(trimmedPatchesDir, f'TRAINpatchesHR_{band}.npy'), protocol=4)
 
+        del trmPatchesLRTest
+        del trmPatchesLR
+        del trmPatchesHR
+        gc.collect()
+
     # CHECKPOINT 5 - AUGMENTING PATCHES
     if 5 in config['ckpt']:
         logging.info(f'Loading {band} train LR Patches...')
         augmentedPatchesLR = np.load(os.path.join(trimmedPatchesDir, f'TRAINpatchesLR_{band}.npy'), allow_pickle=True)
-        logging.info(f'Augmenting by permuting {band} train HR Patches... Input: {augmentedPatchesLR.shape}')
+
+        logging.info(f'Loading {band} train HR Patches...')
+        augmentedPatchesHR = np.load(os.path.join(trimmedPatchesDir, f'TRAINpatchesHR_{band}.npy'), allow_pickle=True)
+
+        logging.info(f'Splitting {band} train Patches...')
+        splits = splitPatches(augmentedPatchesLR, augmentedPatchesHR, config)
+        augmentedPatchesLR, augmentedPatchesLRVal, augmentedPatchesHR, augmentedPatchesHRVal = splits
+
+        logging.info(f'Saving {band} train validattion Patches...')
+        augmentedPatchesLRVal.dump(os.path.join(augmentedPatchesDir, f'TRAINVALpatchesLR_{band}.npy'), protocol=4)
+        augmentedPatchesHRVal.dump(os.path.join(augmentedPatchesDir, f'TRAINVALpatchesHR_{band}.npy'), protocol=4)
+        del augmentedPatchesLRVal
+        del augmentedPatchesHRVal
+
+        logging.info(f'Augmenting by permuting {band} train LR Patches... Input: {augmentedPatchesLR.shape}')
         augmentedPatchesLR = augmentByShufflingLRImgs(augmentedPatchesLR, numPermute=config['num_low_res_permute'])
         if config['to_flip']:
             logging.info(
@@ -236,8 +258,6 @@ def main(config):
         del augmentedPatchesLR
         gc.collect()
 
-        logging.info(f'Loading {band} train HR Patches...')
-        augmentedPatchesHR = np.load(os.path.join(trimmedPatchesDir, f'TRAINpatchesHR_{band}.npy'), allow_pickle=True)
         logging.info(f'Augmenting by permuting {band} train HR Patches... Input: {augmentedPatchesHR.shape}')
         augmentedPatchesHR = np.tile(augmentedPatchesHR, (config['num_low_res_permute'] + 1, 1, 1, 1))
         if config['to_flip']:
@@ -252,6 +272,19 @@ def main(config):
         augmentedPatchesHR.dump(os.path.join(augmentedPatchesDir, f'TRAINpatchesHR_{band}.npy'), protocol=4)
         del augmentedPatchesHR
         gc.collect()
+
+
+def splitPatches(patchesLR: np.ma.masked_array, patchesHR: np.ma.masked_array, config: Dict) -> List[np.ma.array]:
+
+    patchesLR, patchesLRVal, mskLR, mskLRVal, patchesHR, patchesHRVal, mskHR, mskHRVal = train_test_split(
+        patchesLR, patchesLR.mask, patchesHR, patchesHR.mask, test_size=config['split'], random_state=17)
+
+    patchesLR = np.ma.masked_array(patchesLR, mask=mskLR)
+    patchesLRVal = np.ma.masked_array(patchesLRVal, mask=mskLRVal)
+    patchesHR = np.ma.masked_array(patchesHR, mask=mskHR)
+    patchesHRVal = np.ma.masked_array(patchesHRVal, mask=mskHRVal)
+
+    return patchesLR, patchesLRVal, patchesHR, patchesHRVal
 
 
 def augmentByRICAP():

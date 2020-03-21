@@ -25,7 +25,7 @@ logger = logging.getLogger('__name__')
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', default='cfg/p16t9c85r12.cfg', type=str)
+    parser.add_argument('--cfg', default='cfg/redProjectnoFlip64.cfg', type=str)
     parser.add_argument('--band', type=str, default='NIR')
     parser.add_argument('--modelType', type=str, default='patchNet')
     opt = parser.parse_args()
@@ -35,10 +35,15 @@ def parser():
 def patchNet(config):
     logger.info('[ INFO ] Loading data...')
     dataDir = os.path.join(config['preprocessing_out'], 'augmentedPatchesDir')
-    patchHR = np.load(os.path.join(dataDir, f'TRAINpatchesHR_{opt.band}.npy'), allow_pickle=True)
-    patchLR = np.load(os.path.join(dataDir, f'TRAINpatchesLR_{opt.band}.npy'), allow_pickle=True)
 
-    logger.info('[ INFO ] Computing data stats...')
+    X_train = np.load(os.path.join(dataDir, f'TRAINpatchesLR_{opt.band}.npy'), allow_pickle=True)
+    X_val = np.load(os.path.join(dataDir, f'TRAINVALpatchesLR_{opt.band}.npy'), allow_pickle=True)
+    y_train = np.load(os.path.join(dataDir, f'TRAINpatchesHR_{opt.band}.npy'), allow_pickle=True)
+    y_val = np.load(os.path.join(dataDir, f'TRAINVALpatchesHR_{opt.band}.npy'), allow_pickle=True)
+    y_train_mask = ~y_train.mask
+    y_val_mask = ~y_val.mask
+
+    logger.info('[ INFO ] Loading data stats...')
     if opt.band == 'NIR':
         datasetAllMean = 8075.2045  # 8818.0603
         datasetAllStd = 3160.7272  # 6534.1132
@@ -46,16 +51,7 @@ def patchNet(config):
         datasetAllMean = 5266.2245
         datasetAllStd = 3431.8614
 
-    logger.info('[ INFO ] Splitting data...')
-    X_train, X_val, y_train, y_val, y_train_mask, y_val_mask = train_test_split(
-        patchLR, patchHR, ~patchHR.mask, test_size=config['split'], random_state=17)
-
-    logger.info('[ INFO ] Freeing up memory...')
-    del patchLR
-    del patchHR
-    gc.collect()
-
-    logger.info('[ INFO ] Converting masked_array to array...')
+    logger.info('[ INFO ] Converting masked array to array...')
     X_train = np.array(X_train)
     X_val = np.array(X_val)
     y_train = np.array(y_train)
