@@ -1,7 +1,7 @@
 # EnhanceMe! : PROBA-V Super Resolution Challenge
 <p align="center"> <img src="img/mygif3.gif"> </p>
 
-A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9416** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/). Note that I would have not formulated this solution without the current [breakthroughs](## References) in deep learning. Credit also goes to them.
+A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9416** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/). Note that I would have not formulated this solution without the current [breakthroughs](#references) in super resolution. Credit also goes to them.
 
 
 ## TODO List
