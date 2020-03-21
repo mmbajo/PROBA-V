@@ -1,7 +1,7 @@
 # EnhanceMe! : PROBA-V Super Resolution Challenge
 <p align="center"> <img src="img/mygif3.gif"> </p>
 
-A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9416** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/).
+A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9416** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/). Note that I would have not formulated this solution without the current [breakthroughs](## References) in deep learning. Credit also goes to them.
 
 
 ## TODO List
@@ -23,6 +23,14 @@ pip3 install -r requirements.txt
 ```
 
 My python version is 3.6.9. I used Ubuntu 18.04 OS for this project.
+
+## Version that attained top 2 in the leaderboard
+In case you would like to start with the version that attained top 2 in the PROBA-V leaderboard, please clone this repository and enter the following command.
+
+```sh
+git checkout 4af4959ef9b51e6c3397256b679e24059d3d9b8f
+```
+
 
 ## Usage
 You should create a new cfg file with the format below. The current repository has a model in it. Should you wish to see the super resolution version of the dataset using my pretrained model, just run the preprocessing script and after that the test.py script and you are good to go. You must first download the data [here](https://kelvins.esa.int/proba-v-super-resolution/data/) and specify the directory of the raw data in the cfg file.
@@ -164,7 +172,7 @@ The preprocessing steps are the following:
 ## The Model
 The model is based on the well known [WDSR](https://arxiv.org/abs/1808.08718) super resolution neural network architecture which performed very good in DIV2K super resolution dataset. This architecture takes in low resolution images and predicts its high resolution version by using 2D convolutional neural network.
 
-PROBA-V dataset is peculiar since multiple low resolution images are available for predicting the high resolution image. We can view this as the temporal information being available to us. In other words, those low resolution images can be treated as frames of a video and in videos, time one dimension of information.
+PROBA-V dataset is peculiar since multiple low resolution images are available for predicting the high resolution image. We can view this as the temporal information being available to us. In other words, those low resolution images can be treated as frames of a video and in videos, making time as an additional dimension of information.
 
 There is this paper where the researchers used [3D Convolutional Residual Networks(3DSRnet)](https://arxiv.org/abs/1812.09079) networks to generate super resolution video from low resolution ones. We will use that architecture along with [WDSR](https://arxiv.org/abs/1808.08718) blocks to build our network.
 
