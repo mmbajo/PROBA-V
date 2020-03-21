@@ -1,4 +1,6 @@
 # EnhanceMe! : PROBA-V Super Resolution Challenge
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 <p align="center"> <img src="img/mygif3.gif"> </p>
 
 A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9416** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/). Note that I would have not formulated this solution without the current [breakthroughs](#references) in super resolution. Credit also goes to them.
