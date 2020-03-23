@@ -25,7 +25,7 @@ class Losses:
 
         # Initialize gaussian mask for SSIM computation
         # https://en.wikipedia.org/wiki/Structural_similarity
-        self.sigma = 5.0  # gaussian mask std. dev
+        self.sigma = [0.5, 1., 2., 4., 8.]  # gaussian mask std. dev
         self.C1 = (0.01*self.numBytes)**2
         self.C2 = (0.03*self.numBytes)**2
         self.C3 = self.C2/2
