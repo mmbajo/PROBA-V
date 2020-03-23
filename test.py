@@ -24,7 +24,7 @@ imageio.core.util._precision_warn = ignore_warnings
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', default='cfg/p16t9c85r12.cfg', type=str)
+    parser.add_argument('--cfg', default='cfg/FINAL.cfg', type=str)
     parser.add_argument('--band', type=str, default='RED')
     parser.add_argument('--totest', type=str, default='TEST')
     opt = parser.parse_args()
@@ -105,8 +105,8 @@ def evaluate(model, X_test_patches):
 
     for i in tqdm(range(0, X_test_patches.shape[0])):
         # Resolve
-        res_patches = resolve(model, X_test_patches[i])
-        y_pred = reconstruct_from_patches(np.array(res_patches))
+        res_patches = resolveByBatch(model, X_test_patches[i])
+        y_pred = reconstruct_from_patches(res_patches)
         y_preds.append(y_pred)
     return y_preds
 
@@ -118,7 +118,20 @@ def resolve(model, lr_batch):
     sr_batch = tf.clip_by_value(sr_batch, 0, 2**16)
     sr_batch = tf.round(sr_batch)
     sr_batch = tf.cast(sr_batch, tf.float32)
+    sr_batch = np.array(sr_batch)
     return sr_batch
+
+
+def resolveByBatch(model, lr_batch, batch_size=16):
+    n, rem = divmod(lr_batch.shape[0], batch_size)
+    cache = []
+    for i in range(1, n+1):
+        sr_batch = resolve(model, lr_batch[batch_size*(i-1): batch_size*i])
+        cache.append(sr_batch)
+    if rem:
+        sr_batch = resolve(model, lr_batch[batch_size*n: batch_size*n + rem])
+        cache.append(sr_batch)
+    return np.concatenate(cache)
 
 
 def resolveBySampleAveraging(model, lr_batch):
