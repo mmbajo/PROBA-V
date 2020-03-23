@@ -63,7 +63,7 @@ class WDSRConv3D:
             x = self.ConvReduceAndUpscalev2(x, numImgLR, scale, numFilters, kernelSize)
         elif numImgLR == 9:
             x = self.ConvReduceAndUpscale(x, numImgLR, scale, numFilters, kernelSize)
-        elif numImgLR == 12:
+        elif numImgLR == 13:
             x = self.ConvReduceAndUpscalev3(x, numImgLR, scale, numFilters, kernelSize)
         elif numImgLR == 19:
             x = self.ConvReduceAndUpscaleEx(x, numImgLR, scale, numFilters, kernelSize)
@@ -121,14 +121,14 @@ class WDSRConv3D:
         return x
 
     def ConvReduceAndUpscalev3(self, x: tf.Tensor, numImgLR: int, scale: int, numFilters: int, kernelSize: tuple):
-        '''used numLRImg 12 config'''
+        '''used numLRImg 13 config'''
         # Conv Reducer
-        x = Lambda(lambda x: tf.pad(x, [[0, 0], [2, 2], [2, 2], [0, 3], [0, 0]],
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],
                                     mode='reflect'), name=f'convReducePad_{1}')(x)
         x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
                                     activation='relu', name=f'convReducer_{1}')(x)
 
-        x = Lambda(lambda x: tf.pad(x, [[0, 0], [2, 2], [2, 2], [0, 2], [0, 0]],
+        x = Lambda(lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],
                                     mode='reflect'), name=f'convReducePad_{2}')(x)
         x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
                                     activation='relu', name=f'convReducer_{2}')(x)
@@ -143,12 +143,6 @@ class WDSRConv3D:
 
         x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
                                     activation='relu', name=f'convReducer_{5}')(x)
-
-        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
-                                    activation='relu', name=f'convReducer_{6}')(x)
-
-        x = self.weightNormedConv3D(numFilters, kernelSize, padding='valid',
-                                    activation='relu', name=f'convReducer_{7}')(x)
 
         # Upscale block
         x = self.weightNormedConv3D(outChannels=scale*scale, kernelSize=kernelSize,
