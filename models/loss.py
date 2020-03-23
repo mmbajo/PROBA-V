@@ -4,6 +4,7 @@ import tensorflow as tf
 from utils.utils import cropImage
 
 
+# FIX ME: Too many repeated lines
 class Losses:
     '''
     We put all losses and or metrics in one class so that tensorflow detects this loss as one entity...
@@ -16,10 +17,21 @@ class Losses:
         self.cropBorder = cropBorder
         self.maxPixelShift = 2 * cropBorder
         self.numBytes = 2**bitDepth - 1
-        self.pi = 0.7
+
+        self.pi = 0.7  # This constant is for the SobelL1Mix loss function
 
         self.cropSizeHeight = self.targetShapeHeight - self.maxPixelShift
         self.cropSizeWidth = self.targetShapeWidth - self.maxPixelShift
+
+        # Initialize gaussian mask for SSIM computation
+        # https://en.wikipedia.org/wiki/Structural_similarity
+        self.sigma = 5.0  # gaussian mask std. dev
+        self.C1 = (0.01*self.numBytes)**2
+        self.C2 = (0.03*self.numBytes)**2
+        self.C3 = self.C2/2
+        self.alpha = 1.0
+        self.beta = 1.0
+        self.gamma = 1.0
 
     def shiftCompensatedcPSNR(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
         '''
@@ -83,6 +95,33 @@ class Losses:
         minLoss = tf.reduce_min(cacheLosses, axis=0)
         return tf.reduce_mean(minLoss)
 
+    def revSSIM(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
+        cropPrediction = cropImage(predPatchHR, self.cropBorder, self.cropSizeHeight,
+                                   self.cropBorder, self.cropSizeWidth)
+        cacheRevSSIM = []
+
+        # Iterate through all possible shift configurations
+        for i in range(self.maxPixelShift+1):
+            for j in range(self.maxPixelShift+1):
+                self.stackRevSSIM(i, j, patchHR, maskHR, cropPrediction, cacheRevSSIM)
+        cacheLosses = tf.stack(cacheRevSSIM)
+        minRevSSIM = tf.reduce_min(cacheRevSSIM, axis=0)
+        return minRevSSIM
+
+    def stackRevSSIM(self, i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
+        cropTrueImg = cropImage(patchHR, i, self.cropSizeHeight, j, self.cropSizeWidth)
+        cropTrueMsk = cropImage(maskHR, i, self.cropSizeHeight, j, self.cropSizeWidth)
+        cropPredMskd = cropPred * cropTrueMsk
+        totalClearPixels = tf.reduce_sum(cropTrueMsk, axis=(1, 2, 3))
+
+        b = self.computeBiasBrightness(totalClearPixels, cropTrueImg, cropPredMskd)
+
+        correctedCropPred = cropPred + b
+        correctedCropPredMskd = correctedCropPred * cropTrueMsk
+
+        revSSIM = 1 - self.computeMultiScaleSSIM(cropTrueImg, correctedCropPredMskd)
+        cache.append(revSSIM)
+
     def stackL1EdgeLoss(self, i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
         cropTrueImg = cropImage(patchHR, i, self.cropSizeHeight, j, self.cropSizeWidth)
         cropTrueMsk = cropImage(maskHR, i, self.cropSizeHeight, j, self.cropSizeWidth)
@@ -145,6 +184,32 @@ class Losses:
         # Try each bias and find the one with the lowest loss.
         b = tf.reshape(b, (theShape[0], 1, 1, 1))
         return b
+
+    def computeMultiScaleSSIM(self, HR, correctedSR):
+        weights = []
+        for i in range(len(self.sigma)):
+            w = tf.math.exp(-1.0*np.arange(-HR.shape[1]//2, HR.shape[1]//2)/(2*self.sigma[i]**2))
+            w = tf.einsum('i,j->ij', w, w)  # outer product
+            w = w/tf.reduce_sum(w)  # normalize
+            w = tf.reshape(w, [1, HR.shape[1], HR.shape[2], HR.shape[3]])
+            w = tf.tile(w, [HR.shape[0], 1, 1, HR.shape[3]])
+            weights.append(w)
+        weights = tf.stack(weights)
+
+        muHR = tf.reduce_sum(weights * HR, axis=(2, 3), keepdims=True)
+        muSR = tf.reduce_sum(weights * correctedSR, axis=(2, 3), keepdims=True)
+        sigmaHR = tf.reduce_sum(weights * HR**2, axis=(2, 3), keepdims=True) - muHR**2
+        sigmaSR = tf.reduce_sum(weights * correctedSR**2, axis=(2, 3), keepdims=True) - muSR**2
+        cov = tf.reduce_sum(weights * HR * correctedSR, axis=(2, 3), keepdims=True) - muSR*muHR
+
+        luminance = (2.0*muHR*muSR + self.C1)/(muHR**2 + muSR**2 + self.C1)
+        contrast = (2.0*sigmaHR*sigmaSR + self.C1)/(sigmaHR**2 + sigmaSR**2 + self.C1)
+        structure = (2.0*cov + self.C3)/(sigmaHR*sigmaSR + self.C3)
+
+        pcs = tf.math.reduce_prod((contrast**self.beta)*(contrast**self.gamma), axis=0)
+
+        multiScaleSSIM = tf.reduce_sum((luminance**self.alpha)*pcs)/(HR.shape[0]*HR.shape[3])
+        return multiScaleSSIM
 
     def computeL1EdgeLoss(self, totalClearPixels, HR, correctedSR):
         l1loss = (1.0 / totalClearPixels) * tf.reduce_sum(tf.abs(tf.subtract(HR, correctedSR)), axis=(1, 2, 3))
