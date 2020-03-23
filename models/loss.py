@@ -32,6 +32,7 @@ class Losses:
         self.alpha = 1.0
         self.beta = 1.0
         self.gamma = 1.0
+        self.eta = 0.25  # mixture percentage for mL1 loss and SSIM
 
     def shiftCompensatedcPSNR(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
         '''
@@ -95,7 +96,7 @@ class Losses:
         minLoss = tf.reduce_min(cacheLosses, axis=0)
         return tf.reduce_mean(minLoss)
 
-    def revSSIM(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
+    def shiftCompensatedRevSSIM(self, patchHR: tf.Tensor, maskHR: tf.Tensor, predPatchHR: tf.Tensor) -> tf.Tensor:
         cropPrediction = cropImage(predPatchHR, self.cropBorder, self.cropSizeHeight,
                                    self.cropBorder, self.cropSizeWidth)
         cacheRevSSIM = []
@@ -119,7 +120,7 @@ class Losses:
         correctedCropPred = cropPred + b
         correctedCropPredMskd = correctedCropPred * cropTrueMsk
 
-        revSSIM = 1 - self.computeMultiScaleSSIM(cropTrueImg, correctedCropPredMskd)
+        revSSIM = self.computeRevMultiScaleSSIM(maskHR, totalClearPixels, cropTrueImg, correctedCropPredMskd)
         cache.append(revSSIM)
 
     def stackL1EdgeLoss(self, i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
@@ -185,11 +186,11 @@ class Losses:
         b = tf.reshape(b, (theShape[0], 1, 1, 1))
         return b
 
-    def computeMultiScaleSSIM(self, HR, correctedSR):
+    def computeRevMultiScaleSSIM(self, mask, totalClearPixels, HR, correctedSR, isMixed=True):
         weights = []
         for i in range(len(self.sigma)):
             w = tf.math.exp(-1.0*np.arange(-HR.shape[1]//2, HR.shape[1]//2)/(2*self.sigma[i]**2))
-            w = tf.einsum('i,j->ij', w, w)  # outer product
+            w = tf.einsum('i,j->ij', w, w) * mask  # masked outer product
             w = w/tf.reduce_sum(w)  # normalize
             w = tf.reshape(w, [1, HR.shape[1], HR.shape[2], HR.shape[3]])
             w = tf.tile(w, [HR.shape[0], 1, 1, HR.shape[3]])
@@ -208,8 +209,11 @@ class Losses:
 
         pcs = tf.math.reduce_prod((contrast**self.beta)*(contrast**self.gamma), axis=0)
 
-        multiScaleSSIM = tf.reduce_sum((luminance**self.alpha)*pcs)/(HR.shape[0]*HR.shape[3])
-        return multiScaleSSIM
+        loss = 1 - tf.reduce_sum((luminance**self.alpha)*pcs)/(HR.shape[0]*HR.shape[3])
+        if isMixed:
+            l1WeightedLoss = tf.reduce_sum(tf.abs(tf.subtract(HR, correctedSR)) * weights)/(HR.shape[0]*HR.shape[3])
+            loss = self.eta * loss + (1 - self.eta) * l1WeightedLoss
+        return loss
 
     def computeL1EdgeLoss(self, totalClearPixels, HR, correctedSR):
         l1loss = (1.0 / totalClearPixels) * tf.reduce_sum(tf.abs(tf.subtract(HR, correctedSR)), axis=(1, 2, 3))
