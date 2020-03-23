@@ -212,7 +212,8 @@ class Losses:
         loss = 1 - tf.reduce_sum((luminance**self.alpha)*pcs)/(HR.shape[0]*HR.shape[3])
         if isMixed:
             l1WeightedLoss = tf.reduce_sum(tf.abs(tf.subtract(HR, correctedSR)) * weights)/(HR.shape[0]*HR.shape[3])
-            loss = self.eta * loss + (1 - self.eta) * l1WeightedLoss
+            norml1WeightedLoss = l1WeightedLoss/self.numBytes
+            loss = self.eta * loss + (1 - self.eta) * norml1WeightedLoss
         return loss
 
     def computeL1EdgeLoss(self, totalClearPixels, HR, correctedSR):

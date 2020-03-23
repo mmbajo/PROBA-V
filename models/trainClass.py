@@ -62,7 +62,7 @@ class ModelTrainer:
                      X: tf.Tensor, y: tf.Tensor,
                      globalBatchSize: int, epochs: int,
                      valData: List[np.ma.array],
-                     bufferSize: int = 128, valSteps: int = 64,
+                     bufferSize: int = 256, valSteps: int = 64,
                      saveBestOnly: bool = True, initEpoch: int = 0):
 
         logger.info('[ INFO ] Loading data set to buffer cache...')
@@ -96,7 +96,7 @@ class ModelTrainer:
                 self.trainStep(x_batch_train, y_batch_train, y_mask_batch_train)
                 self.ckpt.step.assign_add(1)
 
-                t = f"[ EPOCH {epoch}/{epochs} ] - [ STEP {step}/{int(totalSteps)} ] Loss: {self.trainLoss.result():.3f}, cPSNR: {self.trainPSNR.result():.3f}"
+                t = f"[ EPOCH {epoch}/{epochs} ] - [ STEP {step}/{int(totalSteps)} ] Loss: {self.trainLoss.result():.6f}, cPSNR: {self.trainPSNR.result():.3f}"
                 logger.info(t)
 
                 tf.summary.scalar('Train PSNR', self.trainPSNR.result(), step=globalStep)
@@ -110,7 +110,7 @@ class ModelTrainer:
                         self.testStep(x_batch_val, y_batch_val, y_mask_batch_val)
                     tf.summary.scalar('Test loss', self.testLoss.result(), step=globalStep)
                     tf.summary.scalar('Test PSNR', self.testPSNR.result(), step=globalStep)
-                    t = f"[ *************** VAL INFO *************** ] Validation Loss: {self.testLoss.result():.3f}, Validation PSNR: {self.testPSNR.result():.3f}"
+                    t = f"[ *************** VAL INFO *************** ] Validation Loss: {self.testLoss.result():.6f}, Validation PSNR: {self.testPSNR.result():.3f}"
                     logger.info(t)
                     w.flush()
 
