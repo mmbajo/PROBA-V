@@ -24,7 +24,7 @@ logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', default='cfg/redProjectnoFlip.cfg', type=str)
+    parser.add_argument('--cfg', default='cfg/FINALv2.cfg', type=str)
     parser.add_argument('--band', default='NIR', type=str)
     opt = parser.parse_args()
     return opt
@@ -209,9 +209,8 @@ def main(config):
         # Reshape to [N, C, D, H, W] for PyTorch training
         logging.info(f'Reshaping {band} train patches...')
         # shape is (numImgSet, H, W, numLRImg, C)
-        trmPatchesLRTest = trmPatchesLRTest[:, :, :config['num_low_res_imgs'], :, :, :]
-        trmPatchesLR = trmPatchesLR.transpose((0, 3, 4, 1, 2))[:, :, :, :config['num_low_res_imgs'], :]
-        trmPatchesHR = trmPatchesHR.transpose((0, 3, 4, 1, 2))[:, :, :, :config['num_low_res_imgs'], :]
+        trmPatchesLR = trmPatchesLR.transpose((0, 3, 4, 1, 2))
+        trmPatchesHR = trmPatchesHR.transpose((0, 3, 4, 1, 2))
         trmPatchesHR = trmPatchesHR.squeeze(4)  # (numImgSet, H, W, C)
 
         logging.info(f'Saving {band} test patches with shapes {trmPatchesLRTest.shape}...')
