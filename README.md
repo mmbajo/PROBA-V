@@ -30,7 +30,7 @@ My python version is 3.6.9. I used Ubuntu 18.04 OS for this project.
 In case you would like to start with the version that attained top 2 in the PROBA-V leaderboard, please clone this repository and enter the following command.
 
 ```sh
-git checkout 4af4959ef9b51e6c3397256b679e24059d3d9b8f
+git checkout 4af4959
 ```
 
 
@@ -212,12 +212,19 @@ where p is the loss mixing hyperparameter which ranges from 0 to 1. This loss mi
 
 More concretely, we minimize the absolute difference between the sobel filtered predicted(middle) and truth(right) images along with the absolute difference between the unfiltered ones.
 
+Given adequate time, I would like to explore another mixed loss function called the L1-SSIM loss. I have already implemented this function and if you have tested it yourself please show me your results. This loss function is extensively studied in [this paper](https://research.nvidia.com/sites/default/files/pubs/2017-03_Loss-Functions-for/NN_ImgProc.pdf). In my experiments, you may notice that I did not bother to try using L2 loss. In [this paper](https://research.nvidia.com/sites/default/files/pubs/2017-03_Loss-Functions-for/NN_ImgProc.pdf), the difference between the L1 and the L2 loss functions was explored and the result was that in image super resolution problems, L1 loss generally gives higher PSNR which is the metric we care about. It is to be noted that PSNR directly relates with the L2 loss.
+
+PSNR does not measure how "aesthetically pleasing" the restored image is whereas SSIM metric does quantify how human eye perceive clear aesthetically pleasing image. Though we primarily care about the PSNR, in the mixed L1-SSIM loss, we mix the importance of PSNR and how "aesthetically pleasing" the restored image is. In the paper linked above, the L1-SSIM mix, achieved the highest PSNR compared to L1-only and other loss setups. In this repo, using this particular loss layer is yet to be researched.
+
 ## Some remarks and ideas to try
 * Training the data in patches and reconstructing it by just putting the prediction for respective patches might be a hindrance in achieving a good super resolution image. It might be a good idea if we implement a fusing/stitching network for this purpose.
 * Same with the registration of the images, it might be a good idea to use a neural net for this task.
 * In this implementation, I haven't clipped the LR images according to its bit depth which is 14-bit. Doing so might improve performance since it will remove the outliers in the dataset.
 * In reconstructing the test set, applying a sliding window along the LR images sorted from clearest to dirtiest then creating SR images and applying a weighted average of the SR images might create a better prediction for the HR image.
 * How about using boosting along with deep neural nets?
+* Use L1-SSIM loss.
+* Some ablation study for the important components.
+* How about we visualize the main and residual paths?
 
 
 ## References
