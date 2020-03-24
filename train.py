@@ -25,7 +25,7 @@ logger = logging.getLogger('__name__')
 
 def parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', default='cfg/redProjectnoFlip64.cfg', type=str)
+    parser.add_argument('--cfg', default='cfg/yourcfg.cfg', type=str)
     parser.add_argument('--band', type=str, default='NIR')
     parser.add_argument('--modelType', type=str, default='patchNet')
     opt = parser.parse_args()
@@ -96,6 +96,8 @@ def patchNet(config):
         type_loss = loss.shiftCompensatedL1EdgeLoss
     elif config['loss'] == 'l2':
         type_loss = loss.shiftCompensatedL2Loss
+    elif config['loss'] == 'l1msssim':
+        type_loss = loss.shiftCompensatedRevSSIM
 
     trainClass = ModelTrainer(model=model,
                               loss=type_loss,
@@ -104,7 +106,8 @@ def patchNet(config):
                               ckptDir=ckptDir,
                               logDir=logDir)
 
-    trainClass.fitTrainData(X_train, y, config['batch_size'], config['epochs'], valData)
+    trainClass.fitTrainData(X_train, y, config['batch_size'], config['epochs'], valData,
+                            saveBestOnly=False, initEpoch=0)
 
     logger.info(f'[ SUCCESS ] Model checkpoint can be found in {ckptDir}.')
     logger.info(f'[ SUCCESS ] Model logs can be found in {logDir}.')

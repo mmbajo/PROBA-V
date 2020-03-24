@@ -120,7 +120,7 @@ class Losses:
         correctedCropPred = cropPred + b
         correctedCropPredMskd = correctedCropPred * cropTrueMsk
 
-        revSSIM = self.computeRevMultiScaleSSIM(maskHR, totalClearPixels, cropTrueImg, correctedCropPredMskd)
+        revSSIM = self.computeRevMultiScaleSSIM(cropTrueMsk, totalClearPixels, cropTrueImg, correctedCropPredMskd)
         cache.append(revSSIM)
 
     def stackL1EdgeLoss(self, i: int, j: int, patchHR: tf.Tensor, maskHR: tf.Tensor, cropPred: tf.Tensor, cache: List[float]):
@@ -189,11 +189,11 @@ class Losses:
     def computeRevMultiScaleSSIM(self, mask, totalClearPixels, HR, correctedSR, isMixed=True):
         weights = []
         for i in range(len(self.sigma)):
-            w = tf.math.exp(-1.0*np.arange(-HR.shape[1]//2, HR.shape[1]//2)/(2*self.sigma[i]**2))
-            w = tf.einsum('i,j->ij', w, w) * mask  # masked outer product
-            w = w/tf.reduce_sum(w)  # normalize
+            w = tf.math.exp(-1.0*tf.linspace(-HR.shape[1]/2, HR.shape[1]/2, HR.shape[1])/(2*self.sigma[i]**2))
+            w = tf.einsum('i,j->ij', w, w)  # outer product
             w = tf.reshape(w, [1, HR.shape[1], HR.shape[2], HR.shape[3]])
-            w = tf.tile(w, [HR.shape[0], 1, 1, HR.shape[3]])
+            w = tf.tile(w, [HR.shape[0], 1, 1, HR.shape[3]]) * tf.cast(mask, dtype=tf.float32)
+            w = w/tf.reduce_sum(w, axis=(1, 2, 3), keepdims=True)  # normalize
             weights.append(w)
         weights = tf.stack(weights)
 
@@ -207,7 +207,7 @@ class Losses:
         contrast = (2.0*sigmaHR*sigmaSR + self.C1)/(sigmaHR**2 + sigmaSR**2 + self.C1)
         structure = (2.0*cov + self.C3)/(sigmaHR*sigmaSR + self.C3)
 
-        pcs = tf.math.reduce_prod((contrast**self.beta)*(contrast**self.gamma), axis=0)
+        pcs = tf.math.reduce_prod((contrast**self.beta)*(structure**self.gamma), axis=0)
 
         loss = 1 - tf.reduce_sum((luminance**self.alpha)*pcs)/(HR.shape[0]*HR.shape[3])
         if isMixed:
