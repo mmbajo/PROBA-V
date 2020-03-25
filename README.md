@@ -183,7 +183,7 @@ The proposed architecture in [3DSRnet](https://arxiv.org/abs/1812.09079) is as f
 
 <p align="center"> <img src="img/3DSRnet.png"> </p>
 
-Like any residual nets, this architecture has a main path and a residual path. We replace the bicubic upsampling block with Weight normalized Conv2D net of the mean of the low resolution images. We replace the 3D-CNN block with multiple [WDSR](https://arxiv.org/abs/1812.09079) Residual blocks.
+Like any residual nets, this architecture has a main path and a residual path. We replace the bicubic upsampling block with Weight normalized Conv2D net of the mean of the low resolution images. We replace the 3D-CNN block with multiple [WDSR](https://arxiv.org/abs/1812.09079) Residual blocks. Note that this architecture (Conv3d + WDSR) has also been thoroughly experimented in [this repository](https://github.com/frandorr/PROBA-V-3DWDSR) by frandorr.
 
 <p align="center"> <img src="img/wdsr-b-block.png"> </p>
 
