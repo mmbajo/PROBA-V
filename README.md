@@ -183,7 +183,7 @@ The proposed architecture in [3DSRnet](https://arxiv.org/abs/1812.09079) is as f
 
 <p align="center"> <img src="img/3DSRnet.png"> </p>
 
-Like any residual nets, this architecture has a main path and a residual path. We replace the bicubic upsampling block with Weight normalized Conv2D net of the mean of the low resolution images. We replace the 3D-CNN block with multiple [WDSR](https://arxiv.org/abs/1812.09079) Residual blocks.
+Like any residual nets, this architecture has a main path and a residual path. We replace the bicubic upsampling block with Weight normalized Conv2D net of the mean of the low resolution images. We replace the 3D-CNN block with multiple [WDSR](https://arxiv.org/abs/1812.09079) Residual blocks. Note that this architecture (Conv3d + WDSR) has also been thoroughly experimented in [this repository](https://github.com/frandorr/PROBA-V-3DWDSR) by frandorr.
 
 <p align="center"> <img src="img/wdsr-b-block.png"> </p>
 
@@ -191,7 +191,7 @@ We also apply [instance normalization](https://arxiv.org/abs/1607.08022) on the 
 
 <p align="center"> <img src="img/normalizations.png"> </p>
 
-The final model looks like this. In the ResBlocks3D, we use the novel WDSR-B blocks. [Pixel shuffle](https://arxiv.org/abs/1609.05158) is used for the reconstruction of the super resolution image from the convolutional filters.
+The final model looks something like this. In the ResBlocks3D, we use the novel WDSR-B blocks. [Pixel shuffle](https://arxiv.org/abs/1609.05158) is used for the reconstruction of the super resolution image from the convolutional filters.
 
 
 <p align="center"> <img src="img/model2.png"> </p>
@@ -234,10 +234,11 @@ I learned a lot from these awesome authors of these research papers and reposito
 * [Real-Time Single Image and Video Super-Resolution Using an Efficient Sub-Pixel Convolutional Neural Network](https://arxiv.org/abs/1609.05158)
 * [3DSRnet: Video Super-resolution using 3D Convolutional Neural Networks](https://arxiv.org/abs/1812.09079)
 * [Wide Activation for Efficient and Accurate Image Super-Resolution](https://arxiv.org/abs/1808.08718)
+* [Loss Functions for Image Restoration with Neural Networks](https://research.nvidia.com/sites/default/files/pubs/2017-03_Loss-Functions-for/NN_ImgProc.pdf)
 * [Instance Normalization: The Missing Ingredient for Fast Stylization](https://arxiv.org/abs/1607.08022)
 * [DeepSUM: Deep neural network for Super-resolution of Unregistered Multitemporal images](https://arxiv.org/abs/1907.06490)
 * [Real-Time Single Image and Video Super-Resolution Using an Efficient Sub-Pixel Convolutional Neural Network](https://arxiv.org/abs/1609.05158)
 * [WDSR Tensorflow implementation by krasserm](https://github.com/krasserm/super-resolution)
 * [DeepSUM source code by team Superpip](https://github.com/diegovalsesia/deepsum)
-* [3DWDSRnet by frandorr](https://github.com/frandorr)
+* [3DWDSRnet by frandorr](https://github.com/frandorr/PROBA-V-3DWDSR)
 * [HighRes-net by team Rarefin](https://github.com/ElementAI/HighRes-net)
