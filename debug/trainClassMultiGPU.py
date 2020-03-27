@@ -134,6 +134,11 @@ class ModelTrainer:
                     self.ckpt.psnr = self.testPSNR.result()
                     self.ckptMngr.save()
 
+    def computeLoss(self, patchHR, maskHR, predPatchHR):
+        loss = tf.reduce_sum(self.loss(patchHR, maskHR, predPatchHR)) * (1.0 / self.batchSize)
+        loss += (sum(self.ckpt.model.losses) * 1.0 / self.strategy.num_replicas_in_sync)
+        return loss
+
     @tf.function
     def trainStep(self, patchLR, patchHR, maskHR):
         with tf.GradientTape() as tape:
