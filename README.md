@@ -197,6 +197,25 @@ The final model looks something like this. In the ResBlocks3D, we use the novel 
 <p align="center"> <img src="img/model2.png"> </p>
 
 
+### Side note on the effect of Weight Normalization on training the WDSR nets
+WDSR nets use weight normalization on each convolutional layers in its architecture. So what exactly is the effect of weight normalization? According to the researchers of this novel normalization technique, weight normalization method has two parts. First is the initialization of the **normalized** weights. Second is the reparametrization.
+
+The initialization part consists of the following steps.
+* We start with random initialization of the weights say ![formula](https://render.githubusercontent.com/render/math?math=w,%20b).
+* For each unit in the first layer, compute output after the activations ![formula](https://render.githubusercontent.com/render/math?math=t%20=%20w%20\cdot%20x%20%2B%20b).
+* We compute the mean and standard deviation of the output, ![formula](https://render.githubusercontent.com/render/math?math=\mu[t],%20\sigma[t]).
+* Rescale the weights, ![formula](https://render.githubusercontent.com/render/math?math=w%20=%20\frac{w}{\sigma[t]},%20b%20=%20\frac{b%20-%20{\mu[t]}}{\sigma[t]}).
+* Calculate the normalized output, ![formula](https://render.githubusercontent.com/render/math?math=y%20=%20\phi\left(\frac{t%20-%20{\mu[t]}}{\sigma[t]}\right)%20=%20\phi\left(w%20\cdot%20x%20%2B%20b\right)).
+* Move to the next layer!
+
+Now, the reparametrization part is as follows.
+* Express weights as function of new parameters, ![formula](https://render.githubusercontent.com/render/math?math=w%20=%20\frac{g}{\|v\|}%20v).
+* Minimize loss with respect to new parameters ![formula](https://render.githubusercontent.com/render/math?math=v,%20b,%20g).
+Note that this reparametrization decouples the magnitude and direction of the weight.
+
+So this technique reduces the time it takes for the neural net to be trained. How?
+* Comparing this to batch normalization, weight normalization is not batch dependent. So we are not required to compute the mean and standard deviation every time in every layer. Thus, lowering computational overhead while keeping the scale good for optimization.
+
 ## The Loss Function
 The loss function is a way of expressing what you want the neural net to learn. In my past attempts on this problem, I noticed that the edges of my prediction are not as sharp as that of the high resolution images. So I created a loss function that allows me to penalize the network if my prediction's edges does not match that of the ground truth.
 
