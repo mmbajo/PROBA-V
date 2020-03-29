@@ -183,7 +183,7 @@ The proposed architecture in [3DSRnet](https://arxiv.org/abs/1812.09079) is as f
 
 <p align="center"> <img src="img/3DSRnet.png"> </p>
 
-Like any residual nets, this architecture has a main path and a residual path. We replace the bicubic upsampling block with Weight normalized Conv2D net of the mean of the low resolution images. We replace the 3D-CNN block with multiple [WDSR](https://arxiv.org/abs/1812.09079) Residual blocks. Note that this architecture (Conv3d + WDSR) has also been thoroughly experimented in [this repository](https://github.com/frandorr/PROBA-V-3DWDSR) by frandorr.
+Like any residual nets, this architecture has a main path and a residual path. We replace the bicubic upsampling block with Weight normalized Conv2D net of the mean of the low resolution images. We replace the 3D-CNN block with multiple [WDSR](https://arxiv.org/abs/1812.09079) Residual blocks.
 
 <p align="center"> <img src="img/wdsr-b-block.png"> </p>
 
@@ -221,9 +221,14 @@ For more details, you can find the paper [here](https://arxiv.org/pdf/1602.07868
 
 
 ## The Loss Function
-The loss function is a way of expressing what you want the neural net to learn. In my past attempts on this problem, I noticed that the edges of my prediction are not as sharp as that of the high resolution images. So I created a loss function that allows me to penalize the network if my prediction's edges does not match that of the ground truth.
+The loss function is a way of expressing what you want the neural net to learn and it is the most often not touched by researchers. We always tend to use the defacto L2 norm.
 
-I propose the following loss function.
+For this project, I propose the following loss functions.
+* L1 and Sobel-L1 Mix
+* L1 and MS-SSIM(Multi-Scale Structural Similarity Index) Mix
+
+### L1 and Sobel-L1 Mix
+In my past attempts on this problem, I noticed that the edges of my prediction are not as sharp as that of the high resolution images. So I created a loss function that allows me to penalize the network if my prediction's edges does not match that of the ground truth.
 
 <p align="center"> <img src="img/loss2.gif"> </p>
 
@@ -235,6 +240,7 @@ where p is the loss mixing hyperparameter which ranges from 0 to 1. This loss mi
 
 More concretely, we minimize the absolute difference between the sobel filtered predicted(middle) and truth(right) images along with the absolute difference between the unfiltered ones.
 
+### L1 and MS-SSIM Mix
 Given adequate time, I would like to explore another mixed loss function called the L1-SSIM loss. I have already implemented this function and if you have tested it yourself please show me your results. This loss function is extensively studied in [this paper](https://research.nvidia.com/sites/default/files/pubs/2017-03_Loss-Functions-for/NN_ImgProc.pdf). In my experiments, you may notice that I did not bother to try using L2 loss. In [this paper](https://research.nvidia.com/sites/default/files/pubs/2017-03_Loss-Functions-for/NN_ImgProc.pdf), the difference between the L1 and the L2 loss functions was explored and the result was that in image super resolution problems, L1 loss generally gives higher PSNR which is the metric we care about. It is to be noted that PSNR directly relates with the L2 loss.
 
 PSNR does not measure how "aesthetically pleasing" the restored image is whereas SSIM metric does quantify how human eye perceive clear aesthetically pleasing image. Though we primarily care about the PSNR, in the mixed L1-SSIM loss, we mix the importance of PSNR and how "aesthetically pleasing" the restored image is. In the paper linked above, the L1-SSIM mix, achieved the highest PSNR compared to L1-only and other loss setups. In this repo, using this particular loss layer is yet to be researched.
