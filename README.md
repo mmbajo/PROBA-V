@@ -213,8 +213,12 @@ Now, the reparametrization part is as follows.
 * Minimize loss with respect to new parameters ![formula](https://render.githubusercontent.com/render/math?math=v,%20b,%20g).
 Note that this reparametrization decouples the magnitude and direction of the weight.
 
-So this technique reduces the time it takes for the neural net to be trained. How?
-* Comparing this to batch normalization, weight normalization is not batch dependent. So we are not required to compute the mean and standard deviation every time in every layer. Thus, lowering computational overhead while keeping the scale good for optimization.
+So this technique reduces the time it takes for the neural net to be trained. How? Let's see...
+* Comparing this to batch normalization, weight normalization is not batch dependent. Hence, we are not required to compute the mean and standard deviation every time in every layer. Thus, lowering computational overhead while keeping the scale good for optimization.
+* Remember that the goal of batch normalization is to remove the effect of covariate shifts in the neural network. It keeps the input scaling constant across the neural network. We can then normalize the inputs by forcing ![formula](https://render.githubusercontent.com/render/math?math=\mu%20=%200,%20\sigma%20=%201). In the language of linear algebra, we should aim for the covariance matrix of the inputs across the layers of the neural network to be near identity. It turns out that that the gradients with respect to our new parameters, ![formula](https://render.githubusercontent.com/render/math?math=v,%20g), *scales* the gradient with respect to the weight vector and *projects* the gradient away from the weight vector. Both effects help bring the covariance matrix of the gradients closer to identity which then benefit the optimization.
+
+For more details, you can find the paper [here](https://arxiv.org/pdf/1602.07868.pdf).
+
 
 ## The Loss Function
 The loss function is a way of expressing what you want the neural net to learn. In my past attempts on this problem, I noticed that the edges of my prediction are not as sharp as that of the high resolution images. So I created a loss function that allows me to penalize the network if my prediction's edges does not match that of the ground truth.
