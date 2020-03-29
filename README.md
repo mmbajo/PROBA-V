@@ -194,7 +194,9 @@ We also apply [instance normalization](https://arxiv.org/abs/1607.08022) on the 
 The final model looks something like this. In the ResBlocks3D, we use the novel WDSR-B blocks. [Pixel shuffle](https://arxiv.org/abs/1609.05158) is used for the reconstruction of the super resolution image from the convolutional filters.
 
 
-<p align="center"> <img src="img/model2.png"> </p>
+<p align="center"> <img src="img/model3.png"> </p>
+
+I am yet to visualize the results of these two paths. I imagine that the respective paths learn their respective frequency regions.
 
 
 ### Side note on the effect of Weight Normalization on training the WDSR nets

@@ -26,13 +26,13 @@ class WDSRConv3D:
         imgLR = Lambda(self.normalize, name='normImgLR')(imgLRIn)
         meanImgLR = Lambda(self.normalize, name='normMeanImgLR')(meanImgLR)
 
-        # ImgResBlocks | Main Path
-        main = self.WDSRNetMainPath(imgLR, numFilters, kernelSize,
-                                    numResBlocks, patchSizeLR, numImgLR,
-                                    scale, expRate, decayRate)
+        # ImgResBlocks | High Frequency Residuals Path
+        main = self.WDSRNetHRResidualPath(imgLR, numFilters, kernelSize,
+                                          numResBlocks, patchSizeLR, numImgLR,
+                                          scale, expRate, decayRate)
 
-        # MeanResBlocks | Residual Path
-        residual = self.WDSRNetResidualPath(meanImgLR, kernelSize[:-1], scale)
+        # MeanResBlocks | Low Frequency Residuals Path
+        residual = self.WDSRNetLRResidualPath(meanImgLR, kernelSize[:-1], scale)
 
         # Fuse Main and Residual Patch
         out = Add(name='mainPlusResid')([main, residual])
@@ -42,7 +42,7 @@ class WDSRConv3D:
 
         return Model(imgLRIn, out, name=f'WDSRConv3D_{self.band}_{self.name}')
 
-    def WDSRNetResidualPath(self, x: tf.Tensor, kernelSize: tuple, scale: int):
+    def WDSRNetLRResidualPath(self, x: tf.Tensor, kernelSize: tuple, scale: int):
         # TODO: Check correctness for different scales
         for i in range(scale):
             act = 'relu' if i == 0 else None
@@ -52,9 +52,9 @@ class WDSRConv3D:
         x = Lambda(lambda x: tf.nn.depth_to_space(x, scale), name='dtsResid')(x)  # Pixel Shuffle!
         return x
 
-    def WDSRNetMainPath(self, imgLR: tf.Tensor, numFilters: int, kernelSize: tuple,
-                        numResBlocks: int, patchSizeLR: int, numImgLR: int,
-                        scale: int, expRate: int, decayRate: int):
+    def WDSRNetHRResidualPath(self, imgLR: tf.Tensor, numFilters: int, kernelSize: tuple,
+                              numResBlocks: int, patchSizeLR: int, numImgLR: int,
+                              scale: int, expRate: int, decayRate: int):
         x = self.weightNormedConv3D(numFilters, kernelSize, 'same', activation='relu', name='mainConv1')(imgLR)
         for i in range(numResBlocks):
             x = self.ResConv3D(x, numFilters, expRate, decayRate, kernelSize, i)
