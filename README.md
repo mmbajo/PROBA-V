@@ -1,12 +1,12 @@
 # EnhanceMe! : PROBA-V Super Resolution Challenge
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/wide-activation-for-efficient-and-accurate/multi-frame-super-resolution-on-proba-v)](https://paperswithcode.com/sota/multi-frame-super-resolution-on-proba-v?p=wide-activation-for-efficient-and-accurate) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/wide-activation-for-efficient-and-accurate/multi-frame-super-resolution-on-proba-v)](https://paperswithcode.com/sota/multi-frame-super-resolution-on-proba-v?p=wide-activation-for-efficient-and-accurate) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3733116.svg)](https://doi.org/10.5281/zenodo.3733116)
 
 <p align="center"> <img src="img/mygif3.gif"> </p>
 
 A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9416** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/) as of March 11, 2020. Note that I would have not formulated this solution without the current [breakthroughs](#references) in super resolution. Credit also goes to them!
 
 ## Citation
-If you found this repository useful on your research, please cite this repository.
+If you find this repository useful in your research, please cite this repository. This will help me in case I pursue a PhD programme. So please... :joy:
 ```bibtext
 @misc{mark_bajo_2020_3733116,
     author       = {Mark Bajo},
