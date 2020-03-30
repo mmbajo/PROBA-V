@@ -5,6 +5,22 @@
 
 A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9416** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/) as of March 11, 2020. Note that I would have not formulated this solution without the current [breakthroughs](#references) in super resolution. Credit also goes to them!
 
+## Citation
+If you found this repository useful on your research, please cite this repository.
+```bibtext
+@misc{mark_bajo_2020_3733116,
+    author       = {Mark Bajo},
+    title        = {{Multi-Frame Super Resolution of unregistered temporal images using WDSR nets}},
+    month        = mar,
+    year         = 2020,
+    doi          = {10.5281/zenodo.3733116},
+    version      = {1.0},
+    publisher    = {Zenodo},
+    url          = {https://doi.org/10.5281/zenodo.3733116}
+    }
+```
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3733116.svg)](https://doi.org/10.5281/zenodo.3733116)
+
 
 ## TODO List
 - [x] Preprocessing Pipeline
@@ -33,7 +49,6 @@ In case you would like to start with the version that attained top 2 in the PROB
 ```sh
 git checkout 4af4959
 ```
-
 
 ## Usage
 You should create a new cfg file with the format below. The current repository has a model in it. Should you wish to see the super resolution version of the dataset using my pretrained model, just run the preprocessing script and after that the test.py script and you are good to go. You must first download the data [here](https://kelvins.esa.int/proba-v-super-resolution/data/) and specify the directory of the raw data in the cfg file.
