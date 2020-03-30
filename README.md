@@ -3,7 +3,7 @@
 
 <p align="center"> <img src="img/mygif3.gif"> </p>
 
-A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9416** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/). Note that I would have not formulated this solution without the current [breakthroughs](#references) in super resolution. Credit also goes to them.
+A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9416** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/) as of March 11, 2020. Note that I would have not formulated this solution without the current [breakthroughs](#references) in super resolution. Credit also goes to them!
 
 
 ## TODO List
@@ -12,6 +12,7 @@ A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int
 - [x] Prediction Framework (for competition submission)
 - [x] Parse Config Framework
 - [x] Preliminary Report
+- [ ] Explore other model architectures such as GANS, [SAN](http://openaccess.thecvf.com/content_CVPR_2019/papers/Dai_Second-Order_Attention_Network_for_Single_Image_Super-Resolution_CVPR_2019_paper.pdf), etc.
 - [ ] Bicubic Mean Technique comparison graph
 - [ ] Code cleanup
 - [ ] Low resource training backend
@@ -229,6 +230,8 @@ For this project, I propose the following loss functions.
 * L1 and Sobel-L1 Mix
 * L1 and MS-SSIM(Multi-Scale Structural Similarity Index) Mix
 
+*Note: So far, I have only used the L1 loss function as my main loss function in my experiments. I have used the SobelL1Mix Loss function once with p=0.75 (favoring the L1 loss). The effectiveness of these loss functions on the PSNR will be another whole research topic. Given the time, hardware, and resource constraints, I won't be able to work on this at least on the time being. I urge the reader to explore on this and share the results.*
+
 ### L1 and Sobel-L1 Mix
 In my past attempts on this problem, I noticed that the edges of my prediction are not as sharp as that of the high resolution images. So I created a loss function that allows me to penalize the network if my prediction's edges does not match that of the ground truth.
 
@@ -243,7 +246,7 @@ where p is the loss mixing hyperparameter which ranges from 0 to 1. This loss mi
 More concretely, we minimize the absolute difference between the sobel filtered predicted(middle) and truth(right) images along with the absolute difference between the unfiltered ones.
 
 ### L1 and MS-SSIM Mix
-Given adequate time, I would like to explore another mixed loss function called the L1-SSIM loss. I have already implemented this function and if you have tested it yourself please show me your results. This loss function is extensively studied in [this paper](https://research.nvidia.com/sites/default/files/pubs/2017-03_Loss-Functions-for/NN_ImgProc.pdf). In my experiments, you may notice that I did not bother to try using L2 loss. In [this paper](https://research.nvidia.com/sites/default/files/pubs/2017-03_Loss-Functions-for/NN_ImgProc.pdf), the difference between the L1 and the L2 loss functions was explored and the result was that in image super resolution problems, L1 loss generally gives higher PSNR which is the metric we care about. It is to be noted that PSNR directly relates with the L2 loss.
+Given adequate time, I would like to explore another mixed loss function called the L1-SSIM loss. I have already implemented this function and if you have tested it yourself please show me your results. This loss function is extensively studied in [the research paper](https://research.nvidia.com/sites/default/files/pubs/2017-03_Loss-Functions-for/NN_ImgProc.pdf) published by NVIDIA. In my experiments, you may notice that I did not bother to try using L2 loss. In the aforementioned paper, the difference between the L1 and the L2 loss functions was explored and the result was that in image super resolution problems, L1 loss generally gives higher PSNR which is the metric we care about. It is to be noted that PSNR directly relates with the L2 loss.
 
 PSNR does not measure how "aesthetically pleasing" the restored image is whereas SSIM metric does quantify how human eye perceive clear aesthetically pleasing image. Though we primarily care about the PSNR, in the mixed L1-SSIM loss, we mix the importance of PSNR and how "aesthetically pleasing" the restored image is. In the paper linked above, the L1-SSIM mix, achieved the highest PSNR compared to L1-only and other loss setups. In this repo, using this particular loss layer is yet to be researched.
 
@@ -255,7 +258,7 @@ PSNR does not measure how "aesthetically pleasing" the restored image is whereas
 * How about using boosting along with deep neural nets?
 * Use L1-SSIM loss.
 * Some ablation study for the important components.
-* How about we visualize the main and residual paths?
+* How about we visualize the high and low resolution/frequency residual paths?
 
 
 ## References
