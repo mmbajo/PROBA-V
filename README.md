@@ -204,10 +204,6 @@ Like any residual nets, this architecture has a main path and a residual path. W
 
 <p align="center"> <img src="img/wdsr-b-block.png"> </p>
 
-We also apply [instance normalization](https://arxiv.org/abs/1607.08022) on the images before entering the main and residual paths. In the [DeepSUM](https://arxiv.org/abs/1907.06490) paper, they have used instance normalization in their architecture to make the network training as independent as possible per imageset. Here, we shall see the effect of using instance normalization.
-
-<p align="center"> <img src="img/normalizations.png"> </p>
-
 The final model looks something like this. In the ResBlocks3D, we use the novel WDSR-B blocks. [Pixel shuffle](https://arxiv.org/abs/1609.05158) is used for the reconstruction of the super resolution image from the convolutional filters.
 
 
