@@ -3,7 +3,7 @@
 
 <p align="center"> <img src="img/mygif3.gif"> </p>
 
-A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9411** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/) as of March 30, 2020. Note that I would have not formulated this solution without the current [breakthroughs](#references) in super resolution. Please note that, this solution is inspired from Francisco Dorr's [repository](https://github.com/frandorr/PROBA-V-3DWDSR) which got the top 1 result last 2020/02/02. All credit goes to him!
+A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9411** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/) as of March 30, 2020. This solution is inspired from [Francisco Dorr's repository](https://github.com/frandorr/PROBA-V-3DWDSR) which got the top 1 result last 2020/02/02. Please also note that I would have not formulated this solution without the current [breakthroughs](#references) in super resolution. All credit goes to them!
 
 ## Citation
 If you find this repository useful in your research, please cite this repository. This will help me in case I pursue a PhD programme. So please... :joy:
