@@ -3,9 +3,9 @@
 
 <p align="center"> <img src="img/mygif3.gif"> </p>
 
-A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9411** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/) as of March 30, 2020. This solution is inspired from [Francisco Dorr's repository](https://github.com/frandorr/PROBA-V-3DWDSR) which got the top 1 result last 2020/02/02. Please also note that this solution would not have been formulated without the current [breakthroughs](#references) in super resolution.
+A solution to the [PROBA-V Super Resolution Competition](https://kelvins.esa.int/proba-v-super-resolution/home/) that got **top 2** with a score of **0.9411** in this [leaderboard](https://kelvins.esa.int/proba-v-super-resolution-post-mortem/leaderboard/) as of March 30, 2020. This solution is inspired from [Francisco Dorr's repository](https://github.com/frandorr/PROBA-V-3DWDSR) which got the top 1 result last 2020/02/02 in the post-mortem leaderbord, [Team SuperPip's repository](https://github.com/diegovalsesia/deepsum) which got the first place in the competition proper, and [Team Rarefin's repository](https://github.com/ElementAI/HighRes-net) which got the runner up position in the competion proper. Please also note that this solution would not have been formulated without the current [breakthroughs](#references) in super resolution.
 
-## Publication [UPDATE]
+## [UPDATE]Publication
 Francisco Dorr and I will be collaborating to improve this repository and publish a paper for the new architecture proposed in this repository.
 
 ## Citation
