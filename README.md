@@ -46,7 +46,7 @@ You need to install [Docker](https://docs.docker.com/get-docker/) and [NVIDIA do
 
 Next, build the docker image:
 
-```python
+```sh
 docker build . --tag proba_v:1.0 
 ```
 
@@ -123,7 +123,7 @@ python3 utils/dataGenerator.py --cfg cfg/p16t9c85r12.cfg \
 
 (optional) if you are using Docker version you'll need to add follow command before every executable python script:
 
-```python
+```sh
 docker run --gpus all -it --rm \ 
             -v PROBAV_DATA_LOCATION:/data \
             -v $PWD:/tf \
@@ -131,7 +131,7 @@ docker run --gpus all -it --rm \
 ```
 
 For example:
-```python
+```sh
 docker run --gpus all -it --rm \ 
             -v PROBAV_DATA_LOCATION:/data \
             -v $PWD:/tf \
