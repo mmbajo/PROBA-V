@@ -42,7 +42,7 @@ If you find this repository useful in your research, please cite this repository
 ## Setup to get started
 
 ### Docker version (optional)
-You need to install [Docker](https://docs.docker.com/get-docker/) and [NVIDIA docker support](https://github.com/NVIDIA/nvidia-docker). You can follow [this instructions](https://www.tensorflow.org/install/docker) to get started. 
+You need to install [Docker](https://docs.docker.com/get-docker/) and [NVIDIA docker support](https://github.com/NVIDIA/nvidia-docker). You can follow [these instructions](https://www.tensorflow.org/install/docker) to get started. 
 
 Next, build the docker image:
 
