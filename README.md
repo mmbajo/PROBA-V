@@ -40,11 +40,26 @@ If you find this repository useful in your research, please cite this repository
 - [ ] BE TOP 1 AT LEAST ONCE!!!!!!! :confounded::confounded::confounded:
 
 ## Setup to get started
+
+### Docker version (optional)
+You need to install [Docker](https://docs.docker.com/get-docker/) and [NVIDIA docker support](https://github.com/NVIDIA/nvidia-docker). You can follow [these instructions](https://www.tensorflow.org/install/docker) to get started. 
+
+Next, build the docker image:
+
+```sh
+docker build . --tag proba_v:1.0 
+```
+
+Now you are ready to use the container. 
+
+
+### Without Docker version
 ```python
 pip3 install -r requirements.txt
 ```
 
 My python version is 3.6.9. I used Ubuntu 18.04 OS for this project.
+
 
 ## Version that attained top 2 in the leaderboard
 In case you would like to start with the version that attained top 2 in the PROBA-V leaderboard, please clone this repository and enter the following command.
@@ -55,6 +70,8 @@ git checkout 4af4959
 
 ## Usage
 You should create a new cfg file with the format below. The current repository has a model in it. Should you wish to see the super resolution version of the dataset using my pretrained model, just run the preprocessing script and after that the test.py script and you are good to go. You must first download the data [here](https://kelvins.esa.int/proba-v-super-resolution/data/) and specify the directory of the raw data in the cfg file.
+
+If you are using Docker make sure you have mounted the volumes you'll need. 
 ### Configuration (cfg) file
 ```sh
 [Directories]
@@ -96,11 +113,31 @@ to_rotate=0                     <Augment data by rotating the images.>
 ckpt=1,2,3,4,5                  <Preprocessing checkpoints for debugging.>
 
 ```
+
 ### Preprocessing
 ```sh
 python3 utils/dataGenerator.py --cfg cfg/p16t9c85r12.cfg \
                                --band NIR
 
+```
+
+(optional) if you are using Docker version you'll need to add follow command before every executable python script:
+
+```sh
+docker run --gpus all -it --rm \ 
+            -v PROBAV_DATA_LOCATION:/data \
+            -v $PWD:/tf \
+            -w /tf proba_v:1.0 
+```
+
+For example:
+```sh
+docker run --gpus all -it --rm \ 
+            -v PROBAV_DATA_LOCATION:/data \
+            -v $PWD:/tf \
+            -w /tf proba_v:1.0 \
+            python utils/dataGenerator.py \ 
+            --cfg cfg/p16t9c85r12.cfg --band NIR
 ```
 ### Train
 

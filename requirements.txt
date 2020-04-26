@@ -1,8 +1,8 @@
 torch==1.4
-tensorflow-gpu==2.0.1
-tensorflow-addons==0.5.2
+tensorflow-addons
 scikit-image==0.15
 numpy
 matplotlib
 tqdm
 pandas
+scikit-learn
