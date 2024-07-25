@@ -1,4 +1,4 @@
-torch==1.4
+torch==2.2.0
 tensorflow-addons
 scikit-image==0.15
 numpy
